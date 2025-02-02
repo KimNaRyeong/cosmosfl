@@ -55,5 +55,5 @@ python compute_weighted_score.py results/d4j_autofl_eol_1/*\
 
 We provide several0 scripts for the aggregation under the [scripts directory](./autofl/scripts/), so please refer to those files.
 
-## Visualization of the results
+## Visualising Results
 We provide experimental results along with a [jupyter notebook](./utils/KeyVisuals.ipynb) to reproduce figures included in the paper.
