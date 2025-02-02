@@ -1,0 +1,27 @@
+cloc /tmp/buggy_Lang_36/src/java --csv > loc/Lang_36.csv
+cloc /tmp/buggy_Lang_37/src/java --csv > loc/Lang_37.csv
+cloc /tmp/buggy_Lang_38/src/java --csv > loc/Lang_38.csv
+cloc /tmp/buggy_Lang_39/src/java --csv > loc/Lang_39.csv
+cloc /tmp/buggy_Lang_40/src/java --csv > loc/Lang_40.csv
+cloc /tmp/buggy_Lang_41/src/java --csv > loc/Lang_41.csv
+cloc /tmp/buggy_Lang_42/src/java --csv > loc/Lang_42.csv
+cloc /tmp/buggy_Lang_43/src/java --csv > loc/Lang_43.csv
+cloc /tmp/buggy_Lang_44/src/java --csv > loc/Lang_44.csv
+cloc /tmp/buggy_Lang_45/src/java --csv > loc/Lang_45.csv
+cloc /tmp/buggy_Lang_46/src/java --csv > loc/Lang_46.csv
+cloc /tmp/buggy_Lang_47/src/java --csv > loc/Lang_47.csv
+cloc /tmp/buggy_Lang_48/src/java --csv > loc/Lang_48.csv
+
+python3 count_methods.py /tmp/buggy_Lang_36/src/java -o methods/Lang_36.txt
+python3 count_methods.py /tmp/buggy_Lang_37/src/java -o methods/Lang_37.txt
+python3 count_methods.py /tmp/buggy_Lang_38/src/java -o methods/Lang_38.txt
+python3 count_methods.py /tmp/buggy_Lang_39/src/java -o methods/Lang_39.txt
+python3 count_methods.py /tmp/buggy_Lang_40/src/java -o methods/Lang_40.txt
+python3 count_methods.py /tmp/buggy_Lang_41/src/java -o methods/Lang_41.txt
+python3 count_methods.py /tmp/buggy_Lang_42/src/java -o methods/Lang_42.txt
+python3 count_methods.py /tmp/buggy_Lang_43/src/java -o methods/Lang_43.txt
+python3 count_methods.py /tmp/buggy_Lang_44/src/java -o methods/Lang_44.txt
+python3 count_methods.py /tmp/buggy_Lang_45/src/java -o methods/Lang_45.txt
+python3 count_methods.py /tmp/buggy_Lang_46/src/java -o methods/Lang_46.txt
+python3 count_methods.py /tmp/buggy_Lang_47/src/java -o methods/Lang_47.txt
+python3 count_methods.py /tmp/buggy_Lang_48/src/java -o methods/Lang_48.txt
