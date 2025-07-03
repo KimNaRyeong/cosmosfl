@@ -391,8 +391,11 @@ def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k):
 
 def main(model, repetition, num_files):
     ks = range(1, 13)
-    ks = [3]
+    # ks = [3]
     # ks = range(2, 13)
+    all_gcn_S = dict()
+    all_gcn_F = dict()
+    all_gcn_FA = dict()
 
     for i in range(1, num_files+1):
         reasoning_paths_dict = dict()
@@ -402,6 +405,9 @@ def main(model, repetition, num_files):
             reasoning_paths_dict[k] = dict()
             labels_dict[k] = dict()
             args_dict[k] = dict()
+            all_gcn_S[k] = []
+            all_gcn_F[k] = []
+            all_gcn_FA[k] = []
 
         if model == 'equal_weight':
             combined_result_file = f"../autofl/weighted_fl_results/accat1_de/equal_R{repetition}_{i}.json"
@@ -428,33 +434,27 @@ def main(model, repetition, num_files):
         
         for k in ks:
             gcn_S, gcn_F, gcn_FA = generate_LIG(reasoning_paths_dict[k], labels_dict, args_dict[k], k)
+            all_gcn_S[k].extend(gcn_S)
+            all_gcn_F[k].extend(gcn_F)
+            all_gcn_FA[k].extend(gcn_FA)
 
-            if not os.path.exists(f"./data/{model}/R{repetition}_{num_files}files/{k}"):
-                os.makedirs(f"./data/{model}/R{repetition}_{num_files}files/{k}")
+        
+    for k in ks:
+        if not os.path.exists(f"./data/{model}/R{repetition}_{num_files}files/{k}"):
+            os.makedirs(f"./data/{model}/R{repetition}_{num_files}files/{k}")
 
-            torch.save({
-                "dataset_S": gcn_S,
-                "dataset_F": gcn_F,
-                "dataset_FA": gcn_FA,
-            }, f"data/{model}/R{repetition}_{num_files}files/{k}/gcn_dataset.pth")
-            print(f"{k}th GCN datasets saved to gcn_dataset.pth")
+        torch.save({
+            "dataset_S": all_gcn_S[k],
+            "dataset_F": all_gcn_F[k],
+            "dataset_FA": all_gcn_FA[k],
+        }, f"data/{model}/R{repetition}_{num_files}files/{k}/gcn_dataset.pth")
+        print(f"{k}th GCN datasets saved to gcn_dataset.pth")
 
 
                 
 
         # print(max_args)
         # print(max_length)
-
-
-
-
-
-
-
-
-
-
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
