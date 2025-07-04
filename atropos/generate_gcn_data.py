@@ -396,6 +396,10 @@ def main(model, repetition, num_files):
     all_gcn_S = dict()
     all_gcn_F = dict()
     all_gcn_FA = dict()
+    for k in ks:
+        all_gcn_S[k] = []
+        all_gcn_F[k] = []
+        all_gcn_FA[k] = []
 
     for i in range(1, num_files+1):
         reasoning_paths_dict = dict()
@@ -405,9 +409,6 @@ def main(model, repetition, num_files):
             reasoning_paths_dict[k] = dict()
             labels_dict[k] = dict()
             args_dict[k] = dict()
-            all_gcn_S[k] = []
-            all_gcn_F[k] = []
-            all_gcn_FA[k] = []
 
         if model == 'equal_weight':
             combined_result_file = f"../autofl/weighted_fl_results/accat1_de/equal_R{repetition}_{i}.json"
@@ -437,6 +438,7 @@ def main(model, repetition, num_files):
             all_gcn_S[k].extend(gcn_S)
             all_gcn_F[k].extend(gcn_F)
             all_gcn_FA[k].extend(gcn_FA)
+            # print(len(all_gcn_S[k]))
 
         
     for k in ks:
