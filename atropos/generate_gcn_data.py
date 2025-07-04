@@ -216,7 +216,7 @@ def d4j_get_reasoning_paths_and_args(result_dirs, bug_name, k):
 
     return reasoning_paths, arg_set
 
-def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k):
+def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k, arg_vector_size):
     def add_weighted_edge(G, u, v, weight = 1):
         if G.has_edge(u, v):
             G[u][v]['weight'] += weight
@@ -227,11 +227,11 @@ def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k):
     dataset_F = []
     dataset_FA = []
 
-    arg_vector_size = 0
-    for arg_set in args_dict.values():
-        if len(list(arg_set)) > arg_vector_size:
-            arg_vector_size = len(list(arg_set))
-    arg_vector_size += 1 # for None
+    # arg_vector_size = 0
+    # for arg_set in args_dict.values():
+    #     if len(list(arg_set)) > arg_vector_size:
+    #         arg_vector_size = len(list(arg_set))
+    # arg_vector_size += 1 # for None
 
     for bug_name in reasoning_paths_dict.keys():
         # print(bug_name)
@@ -396,10 +396,12 @@ def main(model, repetition, num_files):
     all_gcn_S = dict()
     all_gcn_F = dict()
     all_gcn_FA = dict()
+    arg_vector_size_dict = dict()
     for k in ks:
         all_gcn_S[k] = []
         all_gcn_F[k] = []
         all_gcn_FA[k] = []
+        arg_vector_size_dict[k] = []
 
     for i in range(1, num_files+1):
         reasoning_paths_dict = dict()
@@ -432,9 +434,11 @@ def main(model, repetition, num_files):
                 reasoning_paths, arg_set = d4j_get_reasoning_paths_and_args(result_dirs, bug_name, k)
                 reasoning_paths_dict[k][bug_name] = reasoning_paths
                 args_dict[k][bug_name] = arg_set
+                arg_vector_size_dict[k].append(len(list(arg_set)))
         
         for k in ks:
-            gcn_S, gcn_F, gcn_FA = generate_LIG(reasoning_paths_dict[k], labels_dict, args_dict[k], k)
+            arg_vector_size = max(arg_vector_size_dict[k]) + 1
+            gcn_S, gcn_F, gcn_FA = generate_LIG(reasoning_paths_dict[k], labels_dict, args_dict[k], k, arg_vector_size)
             all_gcn_S[k].extend(gcn_S)
             all_gcn_F[k].extend(gcn_F)
             all_gcn_FA[k].extend(gcn_FA)
