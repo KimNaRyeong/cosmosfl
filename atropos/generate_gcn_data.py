@@ -8,6 +8,7 @@ from collections import defaultdict
 import numpy as np
 import networkx as nx
 from torch_geometric.utils import from_networkx
+import matplotlib.pyplot as plt
 
 D4J_BUG_INFO_DIR = '../autofl/data/defects4j'
 d4j_bugs = os.listdir('../autofl/data/defects4j')
@@ -200,6 +201,10 @@ def d4j_get_reasoning_paths_and_args(result_dirs, bug_name, k):
                     arg_set.add(reformated_arg)
                 processed_function_call = {"name": function_name, "arguments": reformated_arg}
                 function_calls.append(processed_function_call)
+        # print(rd)
+        # for fc in function_calls:
+        #     print(fc)
+        
         
         # last_response = dialog[-1]
         # if last_response.get("role") and last_response.get("content") and not last_response.get("function_call"):
@@ -211,12 +216,31 @@ def d4j_get_reasoning_paths_and_args(result_dirs, bug_name, k):
                     if sig:
                         arg_set.add(sig)
             reasoning_paths.append({"function_calls": function_calls, "answer": answer_signatures_dict})
-        else: # raw_answer = one
+            # print(f"Answer:{answer_signatures_dict}")
+        else: # raw_answer = None
             reasoning_paths.append({"function_calls": function_calls, "answer": raw_answer})
+            # print(f"Answer: {raw_answer}")
+        # print(arg_set)
+        # print('-------------------------------------')
 
     return reasoning_paths, arg_set
 
-def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k, arg_vector_size):
+def save_LIG_image(LIG, filename="LIG_graph.png"):
+    # Set up the plot
+    plt.figure(figsize=(12, 12))  # Adjust the figure size as needed
+
+    # Draw the graph
+    pos = nx.spring_layout(LIG)  # Choose a layout, e.g., spring_layout
+    nx.draw(LIG, pos, with_labels=True, node_size=700, node_color="lightblue", font_size=10, font_weight="bold")
+
+    edge_labels = nx.get_edge_attributes(LIG, "weight")
+    nx.draw_networkx_edge_labels(LIG, pos, edge_labels=edge_labels, font_size=9)
+
+    # Save the graph as an image
+    plt.savefig(filename, format="png")
+    plt.close()
+
+def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k, arg_vector_size, model, r, n):
     def add_weighted_edge(G, u, v, weight = 1):
         if G.has_edge(u, v):
             G[u][v]['weight'] += weight
@@ -258,18 +282,25 @@ def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k, arg_vector_siz
             if len(function_calls) < k:
                 if answer:
                     for answers in answer.values():
-                        for a in answers:
-                            if not LIG.has_node(str(a)):
-                                LIG.add_node(str(a))
-                            add_weighted_edge(LIG, str(function_calls[-1]), str(a))
+                        if answers:
+                            for a in answers:
+                                if not LIG.has_node(str(a)):
+                                    LIG.add_node(str(a))
+                                add_weighted_edge(LIG, str(function_calls[-1]), str(a))
+                        else:
+                            if not LIG.has_node('None'):
+                                LIG.add_node('None')
+                            add_weighted_edge(LIG, str(function_calls[-1]), 'None')
                 else: # answer = None
                     if not LIG.has_node(str(answer)):
                         LIG.add_node(str(answer))
                     add_weighted_edge(LIG, str(function_calls[-1]), str(answer))
                     
 
-
-        # save_LIG_image(LIG, filename=f"LIG_{k}_{bug_name}.png")
+        # if not os.path.exists(f'./graphs/one_hot/{model}/R{r}/n{n}/{k}'):
+        #     os.makedirs(f'./graphs/one_hot/{model}/R{r}/n{n}/{k}')
+        # save_file_path = f'./graphs/one_hot/{model}/R{r}/n{n}/{k}/{bug_name}.png'
+        # save_LIG_image(LIG, filename=save_file_path)
 
         S_data = from_networkx(LIG)
         F_data = from_networkx(LIG)
@@ -284,42 +315,20 @@ def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k, arg_vector_siz
         FA_nodes_x = []
 
         for node_str in LIG.nodes():
-                # print(node_str)
+            # print(node_str)
                 # print(LIG.out_degree(node_str))
-            try:
-                node = ast.literal_eval(node_str)
-            except:
-                pass
+            # try:
+            #     node = ast.literal_eval(node_str)
+            # except:
+            #     pass
             #     print(node_str)
             #     print(bug_name)
             #     # print('--')
 
             # Function call node
-            if LIG.out_degree(node_str) == 0 and not isinstance(node, dict):
-                func_vector = torch.ones(4, dtype=torch.float)
-                
-                answer_vector = torch.zeros(arg_vector_size, dtype=torch.float)
-                if node != None:
-                    answer_index = arg_list.index(node)
-                    answer_vector[answer_index] = 1
-                    # print("answer is None, but it should not")
-                else:
-                    # print("answer is None")
-                    answer_vector[-1] = 1
-
-                func_answer_vector = torch.cat((func_vector, answer_vector))
-
-                F_nodes_x.append(func_vector)
-                FA_nodes_x.append(func_answer_vector)
-            else:
-                # node = ast.literal_eval(node)
-                # print("==")
-                # print(node)
-                # if not node:
-                    # print(LIG.nodes())
-                    # print(LIG.edges())
-                    # print(bug_name)
-
+            # print(node_str)
+            if "name" in node_str and "arguments" in node_str:
+                node = ast.literal_eval(node_str)
                 if node["name"] == "get_failing_tests_covered_classes":
                     func_vector = torch.tensor([1, 0, 0, 0], dtype=torch.float)
                 elif node["name"] == "get_failing_tests_covered_methods_for_class":
@@ -346,27 +355,35 @@ def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k, arg_vector_siz
 
                 F_nodes_x.append(func_vector)
                 FA_nodes_x.append(func_arg_vector)
-
-            # Answer node
-            # else:
-                # func_vector = torch.ones(4, dtype=torch.float)
-                
-                # answer_vector = torch.zeros(arg_vector_size, dtype=torch.float)
-                # if node != None:
-                #     answer_index = arg_list.index(node)
-                #     answer_vector[answer_index] = 1
-                #     print("answer is None, but it should not")
-                # else:
-                #     print("answer is None")
-                #     answer_vector[-1] = 1
-
-                # func_answer_vector = torch.cat((func_vector, answer_vector))
-
-                # F_nodes_x.append(func_vector)
-                # FA_nodes_x.append(func_answer_vector)
+                # print(func_vector)
+                # print(func_arg_vector)
             
+            # Answer node
+            else:
+                # print(node_str)
+                func_vector = torch.ones(4, dtype=torch.float)
+                
+                answer_vector = torch.zeros(arg_vector_size, dtype=torch.float)
+
+                if node_str == 'None':
+                    answer_vector[-1] = 1
+                else:
+                    answer_index = arg_list.index(node_str)
+                    answer_vector[answer_index] = 1
+                    # print(func_vector)
+                func_answer_vector = torch.cat((func_vector, answer_vector))
+
+                F_nodes_x.append(func_vector)
+                FA_nodes_x.append(func_answer_vector)
+                # print(func_vector)
+                # print(func_answer_vector)
+
+           
             landscape_vector = torch.ones(4, dtype=torch.float)
             S_nodes_x.append(landscape_vector)
+            # print(landscape_vector)
+            # print(func_vector)
+            # print(func_answer_vector)
 
         S_x_stack = np.vstack(S_nodes_x)
         F_x_stack = np.vstack(F_nodes_x)
@@ -380,9 +397,13 @@ def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k, arg_vector_siz
         S_data.y = torch.tensor([labels_dict[bug_name]], dtype=torch.float)
         F_data.y = torch.tensor([labels_dict[bug_name]], dtype=torch.float)
         FA_data.y = torch.tensor([labels_dict[bug_name]], dtype=torch.float)
-        # print(S_data.x.shape)
-        # print(F_data.x.shape)
-        # print(FA_data.x.shape)
+        # print(arg_list)
+        # for i, node in enumerate(LIG.nodes()):
+        #     print(node)
+        #     print(S_data.x[i])
+        #     print(F_data.x[i])
+        #     print(FA_data.x[i])
+        #     print('-----------------')
 
         dataset_S.append(S_data)
         dataset_F.append(F_data)
@@ -393,6 +414,7 @@ def main(model, repetition, num_files):
     ks = range(1, 13)
     # ks = [3]
     # ks = range(2, 13)
+    # ks = [12]
     all_gcn_S = dict()
     all_gcn_F = dict()
     all_gcn_FA = dict()
@@ -435,10 +457,22 @@ def main(model, repetition, num_files):
                 reasoning_paths_dict[k][bug_name] = reasoning_paths
                 args_dict[k][bug_name] = arg_set
                 arg_vector_size_dict[k].append(len(list(arg_set)))
+                # print(f'=============={k}===============')
+                # for rp in reasoning_paths_dict[k][bug_name]:
+                #     for rs in rp['function_calls']:
+                #         print(rs)
+                #     print(f"Answer: {rp['answer']}")
+                #     print('---------------------------------')
+                    
+
+                # print(reasoning_paths_dict[k])
+                # print(args_dict[k][bug_name])
+                # print(arg_vector_size_dict[k])
+                # print('===============================')
         
         for k in ks:
             arg_vector_size = max(arg_vector_size_dict[k]) + 1
-            gcn_S, gcn_F, gcn_FA = generate_LIG(reasoning_paths_dict[k], labels_dict, args_dict[k], k, arg_vector_size)
+            gcn_S, gcn_F, gcn_FA = generate_LIG(reasoning_paths_dict[k], labels_dict, args_dict[k], k, arg_vector_size, model = model, r= repetition, n = num_files)
             all_gcn_S[k].extend(gcn_S)
             all_gcn_F[k].extend(gcn_F)
             all_gcn_FA[k].extend(gcn_FA)
