@@ -419,6 +419,10 @@ def main(model, repetition, num_files):
     all_gcn_F = dict()
     all_gcn_FA = dict()
     arg_vector_size_dict = dict()
+    reasoning_paths_dict = dict()
+    labels_dict = dict()
+    args_dict = dict()
+
     for k in ks:
         all_gcn_S[k] = []
         all_gcn_F[k] = []
@@ -426,13 +430,13 @@ def main(model, repetition, num_files):
         arg_vector_size_dict[k] = []
 
     for i in range(1, num_files+1):
-        reasoning_paths_dict = dict()
-        labels_dict = dict()
-        args_dict = dict()
+        reasoning_paths_dict[i] = dict()
+        labels_dict[i] = dict()
+        args_dict[i] = dict()
         for k in ks:
-            reasoning_paths_dict[k] = dict()
-            labels_dict[k] = dict()
-            args_dict[k] = dict()
+            reasoning_paths_dict[i][k] = dict()
+            # labels_dict[i][k] = dict()
+            args_dict[i][k] = dict()
 
         if model == 'equal_weight':
             combined_result_file = f"../autofl/weighted_fl_results/accat1_de/equal_R{repetition}_{i}.json"
@@ -444,18 +448,19 @@ def main(model, repetition, num_files):
         buggy_method_ranks = combined_results["ranks"]
         bug_list = list(buggy_method_ranks.keys())
         # bug_list = ['Chart_8']
+        # bug_list = bug_list[:30]
         for bug_name in tqdm(bug_list):
             if buggy_method_ranks[bug_name] == 1:
-                labels_dict[bug_name] = 1
+                labels_dict[i][bug_name] = 1
             else:
-                labels_dict[bug_name] = 0
+                labels_dict[i][bug_name] = 0
             
             result_dirs = combined_results["sampled_dirs"]
 
             for k in ks:
                 reasoning_paths, arg_set = d4j_get_reasoning_paths_and_args(result_dirs, bug_name, k)
-                reasoning_paths_dict[k][bug_name] = reasoning_paths
-                args_dict[k][bug_name] = arg_set
+                reasoning_paths_dict[i][k][bug_name] = reasoning_paths
+                args_dict[i][k][bug_name] = arg_set
                 arg_vector_size_dict[k].append(len(list(arg_set)))
                 # print(f'=============={k}===============')
                 # for rp in reasoning_paths_dict[k][bug_name]:
@@ -470,13 +475,15 @@ def main(model, repetition, num_files):
                 # print(arg_vector_size_dict[k])
                 # print('===============================')
         
-        for k in ks:
-            arg_vector_size = max(arg_vector_size_dict[k]) + 1
-            gcn_S, gcn_F, gcn_FA = generate_LIG(reasoning_paths_dict[k], labels_dict, args_dict[k], k, arg_vector_size, model = model, r= repetition, n = num_files)
+    for k in ks:
+        # print()
+        arg_vector_size = max(arg_vector_size_dict[k]) + 1
+        for i in range(1, num_files+1):
+            gcn_S, gcn_F, gcn_FA = generate_LIG(reasoning_paths_dict[i][k], labels_dict[i], args_dict[i][k], k, arg_vector_size, model = model, r= repetition, n = num_files)
             all_gcn_S[k].extend(gcn_S)
             all_gcn_F[k].extend(gcn_F)
             all_gcn_FA[k].extend(gcn_FA)
-            # print(len(all_gcn_S[k]))
+        # print(len(all_gcn_FA[k]))
 
         
     for k in ks:

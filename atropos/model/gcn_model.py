@@ -118,11 +118,6 @@ def test(model, loader, device):
         correct += int((pred == data.y).sum())
     return correct / len(loader.dataset)
 
-# def get_baseline_acc(loader):
-#     num_true = 0
-#     for data in loader:
-#         num_true += int(data.y.sum())
-#     return num_true / len(loader.dataset)
 
 def test_with_auc(model, loader, device):
     model.eval()
@@ -391,8 +386,8 @@ def main(model, repetition, num_files):
     num_epochs = 100
 
     train_and_test_model(dataset_S, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, model, repetition, num_files, "dataset_S")
-    train_and_test_model(dataset_S, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, model, repetition, num_files, "dataset_F")
-    train_and_test_model(dataset_S, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, model, repetition, num_files, "dataset_FA")
+    train_and_test_model(dataset_F, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, model, repetition, num_files, "dataset_F")
+    train_and_test_model(dataset_FA, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, model, repetition, num_files, "dataset_FA")
 
 
 
