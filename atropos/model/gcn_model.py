@@ -363,7 +363,11 @@ def main(model, repetition, num_files):
 
     dataset_S, dataset_F, dataset_FA = data_load(model, repetition, num_files, ks)
 
-    result_file = f"/home/kimnal0/cosmosfl/atropos/results/one_hot/{model}/results_gcn_R{repetition}_{num_files}files.txt"
+    result_dir = f"/home/kimnal0/cosmosfl/atropos/results/one_hot/{model}"
+    if not os.path.exists(result_dir):
+        os.makedirs(result_dir)
+
+    result_file = os.path.join(result_dir, f"results_gcn_R{repetition}_{num_files}files.txt")
 
     if os.path.exists(result_file):
         os.remove(result_file)
