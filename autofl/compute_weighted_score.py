@@ -6,6 +6,7 @@ import multiprocessing as mp
 from tqdm import tqdm
 from time import time
 from sklearn.model_selection import KFold, StratifiedKFold
+from functools import partial
 
 from lib.repo_interface import get_repo_interface
 from compute_score import *
@@ -273,14 +274,16 @@ def cross_validation(score_df, model_list, optimizer, k=10, stratified=False):
     
     return cv_log
 
-def get_equal_weight(size):
-    def return_equal_weight(evaluator):
-        return [1] * size, '', [[1] * size] 
-    return return_equal_weight
+def return_equal_weight(evaluator, size):
+    return [1] * size, '', [[1] * size] 
+
+# def get_equal_weight(size):
+#     return lambda evaluator: return_equal_weight(evaluator, size)
 
 def get_correpsonding_optimizer(strategy, size):
     if strategy == 'equal':
-        return get_equal_weight(size)
+        # return get_equal_weight(size)
+        return partial(return_equal_weight, size=size)
     elif strategy == "grid":
         return get_grid_searcher(size)
     else:
