@@ -15,7 +15,7 @@ sh runner.sh cosmosfl_ 5 defects4j codellama prompts/system_msg_expbug_with_func
 ```
 * `LABEL_PREFIX`: directory prefix to store the raw results
 * `REPETITION`: number of repetitions(specified as $R_m$ in the paper)
-* `DATASET`: only supports `defects4j` - modify tool list of prompt to test with bugsinpy
+* `DATASET`: either `defects4j` or `bugsinpy`
 * `MODEL`: specify model that you want to use, make sure to pull the model on the ollama platform via `ollama pull <model>`
 * `PROMPT_FILE`: we provide `system_msg_expbug_with_funcs.txt` as an example prompt, which we utilised throughout the experiments.
 * `PROJECT`: (not required) name a project included in defects4j benchmark when you want to experiment with a certain project, e.g., Chart
