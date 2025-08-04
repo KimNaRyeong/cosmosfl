@@ -11,7 +11,7 @@ Ensemble of Small Language Models for Fault Localisation
 ### Run FL with individual models
 ```
 sh runner.sh <LABEL_PREFIX> <REPETITION> <DATASET> <MODEL> <PROMPT_FILE> (<PROJECT>)
-sh runner.sh cosmosfl_ 5 defects4j codellama prompts/system_msg_expbug_with_funcs.txt
+sh runner.sh cosmosfl_ 5 defects4j codellama prompts/system_msg_expbug_with_funcs_d4j.txt
 ```
 * `LABEL_PREFIX`: directory prefix to store the raw results
 * `REPETITION`: number of repetitions(specified as $R_m$ in the paper)

@@ -28,7 +28,7 @@ class OllamaEngine(ABC):
             true_response = response.split('Function call:')[1].strip()
             func_name = true_response.split('(')[0]
                 
-            arg_value = true_response.split('(')[1].removesuffix(')')
+            arg_value = true_response.split('(')[1].removesuffix(')') if '(' in true_response else ''
             if '=' in arg_value:
                 arg_value = arg_value.split('=')[-1]
             arg_value = arg_value.strip('"').strip("'")

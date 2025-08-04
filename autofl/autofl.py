@@ -120,7 +120,10 @@ class AutoDebugger(llm_utils.OllamaEngine):
         function_name = response_message["function_call"]["name"]
         function_to_call = self._ri.fname2func[function_name]
         function_args = json.loads(response_message["function_call"]["arguments"])
-        function_response = function_to_call(**function_args)
+        try:
+            function_response = function_to_call(**function_args)
+        except TypeError as e:
+            return function_name, str(e) 
         return function_name, function_response
 
     def step(self, function_call_mode="auto"):
@@ -185,6 +188,8 @@ class AutoDebugger(llm_utils.OllamaEngine):
         )
         response_message = response["choices"][0]["message"]
         self._append_to_messages(response_message)
+        if 'content' not in response_message or response_message['content'] == None:
+            return "Empty list genearted"
         return response_message['content'].strip()
 
     def grade(self, answer):
