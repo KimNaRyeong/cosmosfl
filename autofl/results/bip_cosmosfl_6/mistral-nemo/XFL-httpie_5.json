@@ -1,0 +1,1066 @@
+{
+    "time_taken": 10.372825622558594,
+    "messages": [
+        {
+            "role": "system",
+            "content": "You are a debugging assistant. You will be presented with a failing test, and tools (functions) to access the source code of the system under test (SUT). Your task is to provide a step-by-step explanation of how the bug occurred, based on the failing test and the information you retrieved using tools about the SUT. You will be given 9 chances to interact with functions to gather relevant information. An example answer would look like follows.\n\n```\nThe test `testGenerateURLFragment` checks whether HTML entities such as `&quot;` are correctly escaped to their corresponding character by the `StandardToolTipTagFragmentGenerator.generateToolTipFragment` method. However, the test failure indicates that this is not the case. Following the execution path, we find that `StandardToolTipTagFragmentGenerator.generateToolTipFragment` is not escaping any HTML code; instead, it is using its input `toolTipText` as is. Consequently, un-escaped strings are being returned, which leads to the error demonstrated by the test.\n```\n\nYou have the following functions available to debug the case:\n\n1. get_failing_tests_covered_classes(package_name) - This function retrieves a set of classes covered by failing tests and groups them by their package names. Call example: get_failing_tests_covered_classes(\"my.package\")\n2. get_failing_tests_covered_methods_for_class(class_name) - This function takes a class_name as input and returns a list of method names covered by failing tests for the specified class in the program under test. Call example: get_failing_tests_covered_methods_for_class(\"my.favorite.Class\")\n3. get_code_snippet(method_signature) - This function takes a signature as input and returns the corresponding code snippet for the method or field. Call example: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n\nTo make a function call, respond like the following:\n\n```\nFunction call: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n```\n\nIf you are done and ready to generate a response, respond like the following:\n\n```\nConclusion: The test `testGenerateURLFragment` checks...\n```\n\nYou will keep these instructions in mind while proceeding.\n\nAfter providing this diagnosis, you will be prompted to suggest which methods would be the best locations to be fixed. The answers should be in the form of `ClassName.MethodName(ArgType1, ArgType2, ...)` without commentary (one per line), as your answer will be automatically processed before finally being presented to the user."
+        },
+        {
+            "role": "user",
+            "content": "The test `['tests.tests.TestItemParsing.test_escape_longsep()']` failed.\nThe test looks like:\n\n```python\n79 :     def test_escape_longsep(self):\n80 :         headers, data, files = cli.parse_items([\n81 :             self.kv('bob\\\\:==foo'),\n82 :         ])\n83 :         self.assertDictEqual(data, {\n84 :             'bob:=': 'foo', # error occurred here\n85 :         })\n```\n\nIt failed with the following error message and call stack:\n\n```\nE       AssertionError: {'bob:': '=foo'} != {'bob:=': 'foo'}\nE       - {'bob:': '=foo'}\nE       ?           -\nE       \nE       + {'bob:=': 'foo'}\n>           'bob:=': 'foo',\ntests/tests.py:84: AssertionError\n```\n\nStart by calling the `get_covered_packages` function."
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_covered_packages",
+                "arguments": "{}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_covered_packages",
+            "content": "[\"httpie.cli\", \"httpie.pretty\", \"httpie\", \"httpie.__main__\"]"
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_failing_tests_covered_methods_for_class",
+                "arguments": "{\"class_name\": \"httpie.cli.Parser.parse_items\"}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_failing_tests_covered_methods_for_class",
+            "content": "{\"error_message\": \"No method information available for the class: httpie.cli.Parser.parse_items. The available class names can be found by calling get_failing_tests_covered_classes().\"}"
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_failing_tests_covered_methods_for_class",
+                "arguments": "{\"class_name\": \"httpie.cli.Parser.parse_items\"}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_failing_tests_covered_methods_for_class",
+            "content": "{\"error_message\": \"No method information available for the class: httpie.cli.Parser.parse_items. The available class names can be found by calling get_failing_tests_covered_classes().\"}"
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_code_snippet",
+                "arguments": "{\"signature\": \"httpie.cli.Parser.parse_items\"}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_code_snippet",
+            "content": "\"You probably mean httpie.cli.parse_items(items, data=None, headers=None, files=None). It looks like:\\n```python\\n 66 : def parse_items(items, data=None, headers=None, files=None):\\n 67 :     \\\"\\\"\\\"Parse `KeyValueType` `items` into `data`, `headers` and `files`.\\\"\\\"\\\"\\n 68 :     if headers is None:\\n 69 :         headers = {}\\n 70 :     if data is None:\\n 71 :         data = {}\\n 72 :     if files is None:\\n 73 :         files = {}\\n 74 :     for item in items:\\n 75 :         value = item.value\\n 76 :         key = item.key\\n 77 :         if item.sep == SEP_HEADERS:\\n 78 :             target = headers\\n 79 :         elif item.sep == SEP_FILES:\\n 80 :             try:\\n 81 :                 value = open(os.path.expanduser(item.value), 'r')\\n 82 :             except IOError as e:\\n 83 :                 raise ParseError(\\n 84 :                     'Invalid argument %r. %s' % (item.orig, e))\\n 85 :             if not key:\\n 86 :                 key = os.path.basename(value.name)\\n 87 :             target = files\\n 88 :         elif item.sep in [SEP_DATA, SEP_DATA_RAW_JSON]:\\n 89 :             if item.sep == SEP_DATA_RAW_JSON:\\n 90 :                 try:\\n 91 :                     value = json.loads(item.value)\\n 92 :                 except ValueError:\\n 93 :                     raise ParseError('%s is not valid JSON' % item.orig)\\n 94 :             target = data\\n 95 :         else:\\n 96 :             raise ParseError('%s is not valid item' % item.orig)\\n 97 : \\n 98 :         if key in target:\\n 99 :             ParseError('duplicate item %s (%s)' % (item.key, item.orig))\\n100 : \\n101 :         target[key] = value\\n102 : \\n103 :     return headers, data, files\\n```\""
+        },
+        {
+            "role": "assistant",
+            "content": "Conclusion: The test `tests.tests.TestItemParsing.test_escape_longsep` checks whether the method `httpie.cli.parse_items` correctly handles key-value pairs with the separator \"==\". However, the test failure indicates that this is not the case. Upon reviewing the source code snippet retrieved by the `get_code_snippet` function, we can see that the method is not properly handling the separator in lines 77-81. Instead of correctly parsing the key-value pair with \"==\" as a separator, it's treating it like a header or file item, leading to the error demonstrated by the test.\n\nPotential fix locations:\n```\nhttpie.cli.Parser.parse_items\n```"
+        },
+        {
+            "role": "user",
+            "content": "Based on the available information, provide the signatures of the most likely culprit methods for the bug. Your answer will be processed automatically, so make sure to only answer with the accurate signatures of all likely culprits (in `ClassName.MethodName(ArgType1, ArgType2, ...)` format), without commentary (one per line). "
+        },
+        {
+            "role": "assistant",
+            "content": "httpie.cli.Parser.parse_items"
+        }
+    ],
+    "interaction_records": {
+        "step_histories": [
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m6"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4",
+                    "m6",
+                    "m7"
+                ],
+                "response_message": "m6"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4",
+                    "m6",
+                    "m7",
+                    "m6",
+                    "m7"
+                ],
+                "response_message": "m8"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4",
+                    "m6",
+                    "m7",
+                    "m6",
+                    "m7",
+                    "m8",
+                    "m9"
+                ],
+                "response_message": "m10"
+            }
+        ],
+        "mid_to_message": {
+            "m1": {
+                "role": "system",
+                "content": "You are a debugging assistant. You will be presented with a failing test, and tools (functions) to access the source code of the system under test (SUT). Your task is to provide a step-by-step explanation of how the bug occurred, based on the failing test and the information you retrieved using tools about the SUT. You will be given 9 chances to interact with functions to gather relevant information. An example answer would look like follows.\n\n```\nThe test `testGenerateURLFragment` checks whether HTML entities such as `&quot;` are correctly escaped to their corresponding character by the `StandardToolTipTagFragmentGenerator.generateToolTipFragment` method. However, the test failure indicates that this is not the case. Following the execution path, we find that `StandardToolTipTagFragmentGenerator.generateToolTipFragment` is not escaping any HTML code; instead, it is using its input `toolTipText` as is. Consequently, un-escaped strings are being returned, which leads to the error demonstrated by the test.\n```\n\nYou have the following functions available to debug the case:\n\n1. get_failing_tests_covered_classes(package_name) - This function retrieves a set of classes covered by failing tests and groups them by their package names. Call example: get_failing_tests_covered_classes(\"my.package\")\n2. get_failing_tests_covered_methods_for_class(class_name) - This function takes a class_name as input and returns a list of method names covered by failing tests for the specified class in the program under test. Call example: get_failing_tests_covered_methods_for_class(\"my.favorite.Class\")\n3. get_code_snippet(method_signature) - This function takes a signature as input and returns the corresponding code snippet for the method or field. Call example: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n\nTo make a function call, respond like the following:\n\n```\nFunction call: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n```\n\nIf you are done and ready to generate a response, respond like the following:\n\n```\nConclusion: The test `testGenerateURLFragment` checks...\n```\n\nYou will keep these instructions in mind while proceeding.\n\nAfter providing this diagnosis, you will be prompted to suggest which methods would be the best locations to be fixed. The answers should be in the form of `ClassName.MethodName(ArgType1, ArgType2, ...)` without commentary (one per line), as your answer will be automatically processed before finally being presented to the user."
+            },
+            "m2": {
+                "role": "user",
+                "content": "The test `['tests.tests.TestItemParsing.test_escape_longsep()']` failed.\nThe test looks like:\n\n```python\n79 :     def test_escape_longsep(self):\n80 :         headers, data, files = cli.parse_items([\n81 :             self.kv('bob\\\\:==foo'),\n82 :         ])\n83 :         self.assertDictEqual(data, {\n84 :             'bob:=': 'foo', # error occurred here\n85 :         })\n```\n\nIt failed with the following error message and call stack:\n\n```\nE       AssertionError: {'bob:': '=foo'} != {'bob:=': 'foo'}\nE       - {'bob:': '=foo'}\nE       ?           -\nE       \nE       + {'bob:=': 'foo'}\n>           'bob:=': 'foo',\ntests/tests.py:84: AssertionError\n```\n\nStart by calling the `get_covered_packages` function."
+            },
+            "m3": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_covered_packages",
+                    "arguments": "{}"
+                }
+            },
+            "m4": {
+                "role": "function",
+                "name": "get_covered_packages",
+                "content": "[\"httpie.cli\", \"httpie.pretty\", \"httpie\", \"httpie.__main__\"]"
+            },
+            "m5": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_covered_methods_for_class",
+                    "arguments": "{\"signature\": \"httpie.cli.parse_items\"}"
+                }
+            },
+            "m6": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_failing_tests_covered_methods_for_class",
+                    "arguments": "{\"class_name\": \"httpie.cli.Parser.parse_items\"}"
+                }
+            },
+            "m7": {
+                "role": "function",
+                "name": "get_failing_tests_covered_methods_for_class",
+                "content": "{\"error_message\": \"No method information available for the class: httpie.cli.Parser.parse_items. The available class names can be found by calling get_failing_tests_covered_classes().\"}"
+            },
+            "m8": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_code_snippet",
+                    "arguments": "{\"signature\": \"httpie.cli.Parser.parse_items\"}"
+                }
+            },
+            "m9": {
+                "role": "function",
+                "name": "get_code_snippet",
+                "content": "\"You probably mean httpie.cli.parse_items(items, data=None, headers=None, files=None). It looks like:\\n```python\\n 66 : def parse_items(items, data=None, headers=None, files=None):\\n 67 :     \\\"\\\"\\\"Parse `KeyValueType` `items` into `data`, `headers` and `files`.\\\"\\\"\\\"\\n 68 :     if headers is None:\\n 69 :         headers = {}\\n 70 :     if data is None:\\n 71 :         data = {}\\n 72 :     if files is None:\\n 73 :         files = {}\\n 74 :     for item in items:\\n 75 :         value = item.value\\n 76 :         key = item.key\\n 77 :         if item.sep == SEP_HEADERS:\\n 78 :             target = headers\\n 79 :         elif item.sep == SEP_FILES:\\n 80 :             try:\\n 81 :                 value = open(os.path.expanduser(item.value), 'r')\\n 82 :             except IOError as e:\\n 83 :                 raise ParseError(\\n 84 :                     'Invalid argument %r. %s' % (item.orig, e))\\n 85 :             if not key:\\n 86 :                 key = os.path.basename(value.name)\\n 87 :             target = files\\n 88 :         elif item.sep in [SEP_DATA, SEP_DATA_RAW_JSON]:\\n 89 :             if item.sep == SEP_DATA_RAW_JSON:\\n 90 :                 try:\\n 91 :                     value = json.loads(item.value)\\n 92 :                 except ValueError:\\n 93 :                     raise ParseError('%s is not valid JSON' % item.orig)\\n 94 :             target = data\\n 95 :         else:\\n 96 :             raise ParseError('%s is not valid item' % item.orig)\\n 97 : \\n 98 :         if key in target:\\n 99 :             ParseError('duplicate item %s (%s)' % (item.key, item.orig))\\n100 : \\n101 :         target[key] = value\\n102 : \\n103 :     return headers, data, files\\n```\""
+            },
+            "m10": {
+                "role": "assistant",
+                "content": "Conclusion: The test `tests.tests.TestItemParsing.test_escape_longsep` checks whether the method `httpie.cli.parse_items` correctly handles key-value pairs with the separator \"==\". However, the test failure indicates that this is not the case. Upon reviewing the source code snippet retrieved by the `get_code_snippet` function, we can see that the method is not properly handling the separator in lines 77-81. Instead of correctly parsing the key-value pair with \"==\" as a separator, it's treating it like a header or file item, leading to the error demonstrated by the test.\n\nPotential fix locations:\n```\nhttpie.cli.Parser.parse_items\n```"
+            }
+        }
+    },
+    "buggy_methods": {},
+    "query_costs": [
+        {
+            "total_duration": 812263006,
+            "load_duration": 44216016,
+            "prompt_eval_count": 784,
+            "prompt_eval_duration": 47175688,
+            "eval_count": 50,
+            "eval_duration": 720168054
+        },
+        {
+            "total_duration": 775684395,
+            "load_duration": 35503838,
+            "prompt_eval_count": 784,
+            "prompt_eval_duration": 17232958,
+            "eval_count": 54,
+            "eval_duration": 722047754
+        },
+        {
+            "total_duration": 4299696166,
+            "load_duration": 32852630,
+            "prompt_eval_count": 854,
+            "prompt_eval_duration": 27999603,
+            "eval_count": 312,
+            "eval_duration": 4237759301
+        },
+        {
+            "total_duration": 1187614966,
+            "load_duration": 35133649,
+            "prompt_eval_count": 924,
+            "prompt_eval_duration": 30257455,
+            "eval_count": 81,
+            "eval_duration": 1120928436
+        },
+        {
+            "total_duration": 2270706805,
+            "load_duration": 35933006,
+            "prompt_eval_count": 1485,
+            "prompt_eval_duration": 218306539,
+            "eval_count": 144,
+            "eval_duration": 2015503495
+        },
+        {
+            "total_duration": 265882916,
+            "load_duration": 37077328,
+            "prompt_eval_count": 1705,
+            "prompt_eval_duration": 55740237,
+            "eval_count": 9,
+            "eval_duration": 171967480
+        }
+    ],
+    "total_energy": [
+        0.0,
+        3245.2024999999985
+    ],
+    "power_draw": [
+        [
+            21.934,
+            254.671
+        ],
+        [
+            21.934,
+            254.671
+        ],
+        [
+            21.934,
+            254.671
+        ],
+        [
+            21.934,
+            254.671
+        ],
+        [
+            21.934,
+            254.671
+        ],
+        [
+            22.073,
+            264.692
+        ],
+        [
+            22.073,
+            264.692
+        ],
+        [
+            22.073,
+            264.692
+        ],
+        [
+            22.073,
+            264.692
+        ],
+        [
+            22.073,
+            264.692
+        ],
+        [
+            22.073,
+            300.997
+        ],
+        [
+            22.073,
+            300.997
+        ],
+        [
+            22.073,
+            300.997
+        ],
+        [
+            22.073,
+            300.997
+        ],
+        [
+            22.073,
+            300.997
+        ],
+        [
+            22.026,
+            315.521
+        ],
+        [
+            22.026,
+            315.521
+        ],
+        [
+            22.026,
+            315.521
+        ],
+        [
+            22.026,
+            315.521
+        ],
+        [
+            22.026,
+            315.521
+        ],
+        [
+            22.026,
+            311.291
+        ],
+        [
+            22.026,
+            311.291
+        ],
+        [
+            22.026,
+            311.291
+        ],
+        [
+            22.026,
+            311.291
+        ],
+        [
+            22.026,
+            311.291
+        ],
+        [
+            22.025,
+            314.485
+        ],
+        [
+            22.025,
+            314.485
+        ],
+        [
+            22.025,
+            314.485
+        ],
+        [
+            22.025,
+            314.485
+        ],
+        [
+            22.025,
+            314.485
+        ],
+        [
+            22.025,
+            342.968
+        ],
+        [
+            22.025,
+            342.968
+        ],
+        [
+            22.025,
+            342.968
+        ],
+        [
+            22.025,
+            342.968
+        ],
+        [
+            22.025,
+            342.968
+        ],
+        [
+            22.121,
+            342.746
+        ],
+        [
+            22.121,
+            342.746
+        ],
+        [
+            22.121,
+            342.746
+        ],
+        [
+            22.121,
+            342.746
+        ],
+        [
+            22.121,
+            342.746
+        ],
+        [
+            22.121,
+            341.749
+        ],
+        [
+            22.121,
+            341.749
+        ],
+        [
+            22.121,
+            341.749
+        ],
+        [
+            22.121,
+            341.749
+        ],
+        [
+            22.121,
+            341.749
+        ],
+        [
+            22.131,
+            341.704
+        ],
+        [
+            22.131,
+            341.704
+        ],
+        [
+            22.131,
+            341.704
+        ],
+        [
+            22.131,
+            341.704
+        ],
+        [
+            22.131,
+            341.704
+        ],
+        [
+            22.131,
+            341.611
+        ],
+        [
+            22.131,
+            341.611
+        ],
+        [
+            22.131,
+            341.611
+        ],
+        [
+            22.131,
+            341.611
+        ],
+        [
+            22.131,
+            341.611
+        ],
+        [
+            22.197,
+            341.424
+        ],
+        [
+            22.197,
+            341.424
+        ],
+        [
+            22.197,
+            341.424
+        ],
+        [
+            22.197,
+            341.424
+        ],
+        [
+            22.197,
+            341.424
+        ],
+        [
+            22.197,
+            342.658
+        ],
+        [
+            22.197,
+            342.658
+        ],
+        [
+            22.197,
+            342.658
+        ],
+        [
+            22.197,
+            342.658
+        ],
+        [
+            22.197,
+            342.658
+        ],
+        [
+            22.199,
+            313.858
+        ],
+        [
+            22.199,
+            313.858
+        ],
+        [
+            22.199,
+            313.858
+        ],
+        [
+            22.199,
+            313.858
+        ],
+        [
+            22.199,
+            313.858
+        ],
+        [
+            22.199,
+            313.637
+        ],
+        [
+            22.199,
+            313.637
+        ],
+        [
+            22.199,
+            313.637
+        ],
+        [
+            22.199,
+            313.637
+        ],
+        [
+            22.199,
+            313.637
+        ],
+        [
+            22.202,
+            324.138
+        ],
+        [
+            22.202,
+            324.138
+        ],
+        [
+            22.202,
+            324.138
+        ],
+        [
+            22.202,
+            324.138
+        ],
+        [
+            22.202,
+            324.138
+        ],
+        [
+            22.202,
+            315.304
+        ],
+        [
+            22.202,
+            315.304
+        ],
+        [
+            22.202,
+            315.304
+        ],
+        [
+            22.202,
+            315.304
+        ],
+        [
+            22.202,
+            315.304
+        ],
+        [
+            22.18,
+            317.888
+        ],
+        [
+            22.18,
+            317.888
+        ],
+        [
+            22.18,
+            317.888
+        ],
+        [
+            22.18,
+            317.888
+        ],
+        [
+            22.18,
+            317.888
+        ],
+        [
+            22.18,
+            342.965
+        ],
+        [
+            22.18,
+            342.965
+        ],
+        [
+            22.18,
+            342.965
+        ],
+        [
+            22.18,
+            342.965
+        ],
+        [
+            22.18,
+            342.965
+        ],
+        [
+            22.082,
+            342.987
+        ],
+        [
+            22.082,
+            342.987
+        ],
+        [
+            22.082,
+            342.987
+        ],
+        [
+            22.082,
+            342.987
+        ],
+        [
+            22.082,
+            342.987
+        ],
+        [
+            22.082,
+            315.555
+        ]
+    ],
+    "gpu_activity": [
+        [
+            0,
+            2
+        ],
+        [
+            0,
+            2
+        ],
+        [
+            0,
+            2
+        ],
+        [
+            0,
+            2
+        ],
+        [
+            0,
+            2
+        ],
+        [
+            0,
+            2
+        ],
+        [
+            0,
+            82
+        ],
+        [
+            0,
+            82
+        ],
+        [
+            0,
+            82
+        ],
+        [
+            0,
+            82
+        ],
+        [
+            0,
+            82
+        ],
+        [
+            0,
+            82
+        ],
+        [
+            0,
+            82
+        ],
+        [
+            0,
+            82
+        ],
+        [
+            0,
+            82
+        ],
+        [
+            0,
+            82
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            34
+        ],
+        [
+            0,
+            34
+        ],
+        [
+            0,
+            34
+        ],
+        [
+            0,
+            34
+        ],
+        [
+            0,
+            34
+        ],
+        [
+            0,
+            34
+        ],
+        [
+            0,
+            34
+        ],
+        [
+            0,
+            34
+        ],
+        [
+            0,
+            34
+        ],
+        [
+            0,
+            34
+        ],
+        [
+            0,
+            80
+        ],
+        [
+            0,
+            80
+        ],
+        [
+            0,
+            80
+        ],
+        [
+            0,
+            80
+        ],
+        [
+            0,
+            80
+        ],
+        [
+            0,
+            80
+        ],
+        [
+            0,
+            80
+        ],
+        [
+            0,
+            80
+        ],
+        [
+            0,
+            80
+        ],
+        [
+            0,
+            80
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ],
+        [
+            0,
+            79
+        ]
+    ]
+}

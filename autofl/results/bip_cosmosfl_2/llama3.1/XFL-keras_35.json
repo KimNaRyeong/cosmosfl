@@ -1,0 +1,1363 @@
+{
+    "time_taken": 13.493679523468018,
+    "messages": [
+        {
+            "role": "system",
+            "content": "You are a debugging assistant. You will be presented with a failing test, and tools (functions) to access the source code of the system under test (SUT). Your task is to provide a step-by-step explanation of how the bug occurred, based on the failing test and the information you retrieved using tools about the SUT. You will be given 9 chances to interact with functions to gather relevant information. An example answer would look like follows.\n\n```\nThe test `testGenerateURLFragment` checks whether HTML entities such as `&quot;` are correctly escaped to their corresponding character by the `StandardToolTipTagFragmentGenerator.generateToolTipFragment` method. However, the test failure indicates that this is not the case. Following the execution path, we find that `StandardToolTipTagFragmentGenerator.generateToolTipFragment` is not escaping any HTML code; instead, it is using its input `toolTipText` as is. Consequently, un-escaped strings are being returned, which leads to the error demonstrated by the test.\n```\n\nYou have the following functions available to debug the case:\n\n1. get_failing_tests_covered_classes(package_name) - This function retrieves a set of classes covered by failing tests and groups them by their package names. Call example: get_failing_tests_covered_classes(\"my.package\")\n2. get_failing_tests_covered_methods_for_class(class_name) - This function takes a class_name as input and returns a list of method names covered by failing tests for the specified class in the program under test. Call example: get_failing_tests_covered_methods_for_class(\"my.favorite.Class\")\n3. get_code_snippet(method_signature) - This function takes a signature as input and returns the corresponding code snippet for the method or field. Call example: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n\nTo make a function call, respond like the following:\n\n```\nFunction call: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n```\n\nIf you are done and ready to generate a response, respond like the following:\n\n```\nConclusion: The test `testGenerateURLFragment` checks...\n```\n\nYou will keep these instructions in mind while proceeding.\n\nAfter providing this diagnosis, you will be prompted to suggest which methods would be the best locations to be fixed. The answers should be in the form of `ClassName.MethodName(ArgType1, ArgType2, ...)` without commentary (one per line), as your answer will be automatically processed before finally being presented to the user."
+        },
+        {
+            "role": "user",
+            "content": "The test `['tests.keras.preprocessing.image_test.TestImage.test_directory_iterator()']` failed.\nThe test looks like:\n\n```python\n177 :     def test_directory_iterator(self, tmpdir):\n178 :         num_classes = 2\n179 : \n180 :         # create folders and subfolders\n181 :         paths = []\n182 :         for cl in range(num_classes):\n183 :             class_directory = 'class-{}'.format(cl)\n184 :             classpaths = [\n185 :                 class_directory,\n186 :                 os.path.join(class_directory, 'subfolder-1'),\n187 :                 os.path.join(class_directory, 'subfolder-2'),\n188 :                 os.path.join(class_directory, 'subfolder-1', 'sub-subfolder')\n189 :             ]\n190 :             for path in classpaths:\n191 :                 tmpdir.join(path).mkdir()\n192 :             paths.append(classpaths)\n193 : \n194 :         # save the images in the paths\n195 :         count = 0\n196 :         filenames = []\n197 :         for test_images in self.all_test_images:\n198 :             for im in test_images:\n199 :                 # rotate image class\n200 :                 im_class = count % num_classes\n201 :                 # rotate subfolders\n202 :                 classpaths = paths[im_class]\n203 :                 filename = os.path.join(classpaths[count % len(classpaths)], 'image-{}.jpg'.format(count))\n204 :                 filenames.append(filename)\n205 :                 im.save(str(tmpdir / filename))\n206 :                 count += 1\n207 : \n208 :         # create iterator\n209 :         generator = image.ImageDataGenerator()\n210 :         dir_iterator = generator.flow_from_directory(str(tmpdir))\n211 : \n212 :         # check number of classes and images\n213 :         assert len(dir_iterator.class_indices) == num_classes\n217 :         # Test invalid use cases\n218 :         with pytest.raises(ValueError):\n219 :             generator.flow_from_directory(str(tmpdir), color_mode='cmyk')\n220 :         with pytest.raises(ValueError):\n221 :             generator.flow_from_directory(str(tmpdir), class_mode='output')\n222 : \n223 :         # Test usage as Sequence\n224 :         generator = image.ImageDataGenerator()\n225 :         dir_seq = generator.flow_from_directory(str(tmpdir),\n226 :                                                 target_size=(26, 26),\n227 :                                                 color_mode='rgb',\n228 :                                                 batch_size=3,\n229 :                                                 class_mode='categorical')\n230 :         assert len(dir_seq) == count // 3 + 1\n232 :         assert x1.shape == (3, 26, 26, 3)\n235 :         with pytest.raises(ValueError):\n236 :             x1, y1 = dir_seq[9]\n237 : \n238 :         # Test Preprocessing before resize\n239 :         def preprocess_test(img):\n240 :             return img.resize((1, 1))\n241 : \n242 :         generator = image.ImageDataGenerator(preprocessing_function=preprocess_test)\n243 :         dir_seq = generator.flow_from_directory(str(tmpdir),\n244 :                                                 target_size=(26, 26),\n245 :                                                 color_mode='rgb',\n246 :                                                 batch_size=1,\n247 :                                                 class_mode='categorical')\n248 : \n249 :         gen_x1, gen_y1 = dir_seq[1] # error occurred here\n```\n\nIt failed with the following error message and call stack:\n\n```\nE       ValueError: cannot resize an array that references or is referenced\nE       by another array in this way.\nE       Use the np.resize function or refcheck=False\n>       gen_x1, gen_y1 = dir_seq[1]\ntests/keras/preprocessing/image_test.py:249: \nkeras/preprocessing/image.py:827: in __getitem__\nkeras/preprocessing/image.py:827: in __getitem__\n    return self._get_batches_of_transformed_samples(index_array)\nkeras/preprocessing/image.py:1234: in _get_batches_of_transformed_samples\n    x = self.image_data_generator.standardize(x)\nkeras/preprocessing/image.py:584: in standardize\n    x = self.preprocessing_function(x)\n\n>       return img.resize((1, 1))\ntests/keras/preprocessing/image_test.py:240: ValueError\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/pywrap_tensorflow_internal.py:15: DeprecationWarning: the imp module is deprecated in favour of importlib; see the module's documentation for alternative uses\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/framework/dtypes.py:526: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/framework/dtypes.py:527: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/framework/dtypes.py:528: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/framework/dtypes.py:529: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/framework/dtypes.py:530: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/framework/dtypes.py:535: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/util/nest.py:823: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/util/nest.py:824: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/training/checkpointable/data_structures.py:312: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/training/checkpointable/data_structures.py:546: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/training/checkpointable/util.py:448: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/setuptools/_distutils/version.py:346: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/function.py:114: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /home/user/BugsInPy/temp/projects/keras/keras/callbacks.py:18: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working\n/opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/coverage/control.py:793: CoverageWarning: No data was collected. (no-data-collected)\n```\n\nStart by calling the `get_covered_packages` function."
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_covered_packages",
+                "arguments": "{}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_covered_packages",
+            "content": "[\"keras.layers.pooling\", \"keras.engine.training\", \"keras.backend\", \"keras.layers.core\", \"keras.legacy.layers\", \"keras.layers.advanced_activations\", \"keras.callbacks\", \"keras.engine.topology\", \"keras.layers.cudnn_recurrent\", \"keras.initializers\", \"keras.datasets\", \"keras.layers.merge\", \"keras.utils.generic_utils\", \"keras.layers.convolutional_recurrent\", \"keras.engine\", \"keras.utils.data_utils\", \"keras.layers.normalization\", \"keras.layers.wrappers\", \"keras.utils\", \"keras.layers.embeddings\", \"keras.applications\", \"keras.layers.recurrent\", \"keras\", \"keras.wrappers.scikit_learn\", \"keras.constraints\", \"keras.preprocessing.image\", \"keras.models\", \"keras.backend.tensorflow_backend\", \"keras.preprocessing.text\", \"keras.preprocessing\", \"keras.legacy\", \"keras.layers.noise\", \"keras.optimizers\", \"keras.layers.convolutional\", \"keras.layers.local\", \"keras.applications.mobilenet\", \"keras.regularizers\", \"keras.utils.io_utils\", \"keras.layers\"]"
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_code_snippet",
+                "arguments": "{\"signature\": \"keras.preprocessing.image.ImageDataGenerator.__init__\"}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_code_snippet",
+            "content": "\"437 :     def __init__(self,\\n438 :                  featurewise_center=False,\\n439 :                  samplewise_center=False,\\n440 :                  featurewise_std_normalization=False,\\n441 :                  samplewise_std_normalization=False,\\n442 :                  zca_whitening=False,\\n443 :                  zca_epsilon=1e-6,\\n444 :                  rotation_range=0.,\\n445 :                  width_shift_range=0.,\\n446 :                  height_shift_range=0.,\\n447 :                  brightness_range=None,\\n448 :                  shear_range=0.,\\n449 :                  zoom_range=0.,\\n450 :                  channel_shift_range=0.,\\n451 :                  fill_mode='nearest',\\n452 :                  cval=0.,\\n453 :                  horizontal_flip=False,\\n454 :                  vertical_flip=False,\\n455 :                  rescale=None,\\n456 :                  preprocessing_function=None,\\n457 :                  data_format=None,\\n458 :                  validation_split=0.0):\\n459 :         if data_format is None:\\n460 :             data_format = K.image_data_format()\\n461 :         self.featurewise_center = featurewise_center\\n462 :         self.samplewise_center = samplewise_center\\n463 :         self.featurewise_std_normalization = featurewise_std_normalization\\n464 :         self.samplewise_std_normalization = samplewise_std_normalization\\n465 :         self.zca_whitening = zca_whitening\\n466 :         self.zca_epsilon = zca_epsilon\\n467 :         self.rotation_range = rotation_range\\n468 :         self.width_shift_range = width_shift_range\\n469 :         self.height_shift_range = height_shift_range\\n470 :         self.brightness_range = brightness_range\\n471 :         self.shear_range = shear_range\\n472 :         self.zoom_range = zoom_range\\n473 :         self.channel_shift_range = channel_shift_range\\n474 :         self.fill_mode = fill_mode\\n475 :         self.cval = cval\\n476 :         self.horizontal_flip = horizontal_flip\\n477 :         self.vertical_flip = vertical_flip\\n478 :         self.rescale = rescale\\n479 :         self.preprocessing_function = preprocessing_function\\n480 : \\n481 :         if data_format not in {'channels_last', 'channels_first'}:\\n482 :             raise ValueError('`data_format` should be `\\\"channels_last\\\"` (channel after row and '\\n483 :                              'column) or `\\\"channels_first\\\"` (channel before row and column). '\\n484 :                              'Received arg: ', data_format)\\n485 :         self.data_format = data_format\\n486 :         if data_format == 'channels_first':\\n487 :             self.channel_axis = 1\\n488 :             self.row_axis = 2\\n489 :             self.col_axis = 3\\n490 :         if data_format == 'channels_last':\\n491 :             self.channel_axis = 3\\n492 :             self.row_axis = 1\\n493 :             self.col_axis = 2\\n494 :         if validation_split and not 0 < validation_split < 1:\\n495 :             raise ValueError('`validation_split` must be strictly between 0 and 1. '\\n496 :                              ' Received arg: ', validation_split)\\n497 :         self._validation_split = validation_split\\n498 : \\n499 :         self.mean = None\\n500 :         self.std = None\\n501 :         self.principal_components = None\\n502 : \\n503 :         if np.isscalar(zoom_range):\\n504 :             self.zoom_range = [1 - zoom_range, 1 + zoom_range]\\n505 :         elif len(zoom_range) == 2:\\n506 :             self.zoom_range = [zoom_range[0], zoom_range[1]]\\n507 :         else:\\n508 :             raise ValueError('`zoom_range` should be a float or '\\n509 :                              'a tuple or list of two floats. '\\n510 :                              'Received arg: ', zoom_range)\\n511 :         if zca_whitening:\\n512 :             if not featurewise_center:\\n513 :                 self.featurewise_center = True\\n514 :                 warnings.warn('This ImageDataGenerator specifies '\\n515 :                               '`zca_whitening`, which overrides '\\n516 :                               'setting of `featurewise_center`.')\\n517 :             if featurewise_std_normalization:\\n518 :                 self.featurewise_std_normalization = False\\n519 :                 warnings.warn('This ImageDataGenerator specifies '\\n520 :                               '`zca_whitening` '\\n521 :                               'which overrides setting of'\\n522 :                               '`featurewise_std_normalization`.')\\n523 :         if featurewise_std_normalization:\\n524 :             if not featurewise_center:\\n525 :                 self.featurewise_center = True\\n526 :                 warnings.warn('This ImageDataGenerator specifies '\\n527 :                               '`featurewise_std_normalization`, '\\n528 :                               'which overrides setting of '\\n529 :                               '`featurewise_center`.')\\n530 :         if samplewise_std_normalization:\\n531 :             if not samplewise_center:\\n532 :                 self.samplewise_center = True\\n533 :                 warnings.warn('This ImageDataGenerator specifies '\\n534 :                               '`samplewise_std_normalization`, '\\n535 :                               'which overrides setting of '\\n536 :                               '`samplewise_center`.')\""
+        },
+        {
+            "role": "assistant",
+            "content": "keras.preprocessing.image.ImageDataGenerator.__init__"
+        },
+        {
+            "role": "user",
+            "content": "Based on the available information, provide the signatures of the most likely culprit methods for the bug. Your answer will be processed automatically, so make sure to only answer with the accurate signatures of all likely culprits (in `ClassName.MethodName(ArgType1, ArgType2, ...)` format), without commentary (one per line). "
+        },
+        {
+            "role": "assistant",
+            "content": "keras.preprocessing.image.ImageDataGenerator.preprocessing_function\nkeras.preprocessing.image.ImageDataGenerator.__init__\nkeras.preprocessing.image.load_img"
+        }
+    ],
+    "interaction_records": {
+        "step_histories": [
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m6"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4",
+                    "m6",
+                    "m7"
+                ],
+                "response_message": "m8"
+            }
+        ],
+        "mid_to_message": {
+            "m1": {
+                "role": "system",
+                "content": "You are a debugging assistant. You will be presented with a failing test, and tools (functions) to access the source code of the system under test (SUT). Your task is to provide a step-by-step explanation of how the bug occurred, based on the failing test and the information you retrieved using tools about the SUT. You will be given 9 chances to interact with functions to gather relevant information. An example answer would look like follows.\n\n```\nThe test `testGenerateURLFragment` checks whether HTML entities such as `&quot;` are correctly escaped to their corresponding character by the `StandardToolTipTagFragmentGenerator.generateToolTipFragment` method. However, the test failure indicates that this is not the case. Following the execution path, we find that `StandardToolTipTagFragmentGenerator.generateToolTipFragment` is not escaping any HTML code; instead, it is using its input `toolTipText` as is. Consequently, un-escaped strings are being returned, which leads to the error demonstrated by the test.\n```\n\nYou have the following functions available to debug the case:\n\n1. get_failing_tests_covered_classes(package_name) - This function retrieves a set of classes covered by failing tests and groups them by their package names. Call example: get_failing_tests_covered_classes(\"my.package\")\n2. get_failing_tests_covered_methods_for_class(class_name) - This function takes a class_name as input and returns a list of method names covered by failing tests for the specified class in the program under test. Call example: get_failing_tests_covered_methods_for_class(\"my.favorite.Class\")\n3. get_code_snippet(method_signature) - This function takes a signature as input and returns the corresponding code snippet for the method or field. Call example: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n\nTo make a function call, respond like the following:\n\n```\nFunction call: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n```\n\nIf you are done and ready to generate a response, respond like the following:\n\n```\nConclusion: The test `testGenerateURLFragment` checks...\n```\n\nYou will keep these instructions in mind while proceeding.\n\nAfter providing this diagnosis, you will be prompted to suggest which methods would be the best locations to be fixed. The answers should be in the form of `ClassName.MethodName(ArgType1, ArgType2, ...)` without commentary (one per line), as your answer will be automatically processed before finally being presented to the user."
+            },
+            "m2": {
+                "role": "user",
+                "content": "The test `['tests.keras.preprocessing.image_test.TestImage.test_directory_iterator()']` failed.\nThe test looks like:\n\n```python\n177 :     def test_directory_iterator(self, tmpdir):\n178 :         num_classes = 2\n179 : \n180 :         # create folders and subfolders\n181 :         paths = []\n182 :         for cl in range(num_classes):\n183 :             class_directory = 'class-{}'.format(cl)\n184 :             classpaths = [\n185 :                 class_directory,\n186 :                 os.path.join(class_directory, 'subfolder-1'),\n187 :                 os.path.join(class_directory, 'subfolder-2'),\n188 :                 os.path.join(class_directory, 'subfolder-1', 'sub-subfolder')\n189 :             ]\n190 :             for path in classpaths:\n191 :                 tmpdir.join(path).mkdir()\n192 :             paths.append(classpaths)\n193 : \n194 :         # save the images in the paths\n195 :         count = 0\n196 :         filenames = []\n197 :         for test_images in self.all_test_images:\n198 :             for im in test_images:\n199 :                 # rotate image class\n200 :                 im_class = count % num_classes\n201 :                 # rotate subfolders\n202 :                 classpaths = paths[im_class]\n203 :                 filename = os.path.join(classpaths[count % len(classpaths)], 'image-{}.jpg'.format(count))\n204 :                 filenames.append(filename)\n205 :                 im.save(str(tmpdir / filename))\n206 :                 count += 1\n207 : \n208 :         # create iterator\n209 :         generator = image.ImageDataGenerator()\n210 :         dir_iterator = generator.flow_from_directory(str(tmpdir))\n211 : \n212 :         # check number of classes and images\n213 :         assert len(dir_iterator.class_indices) == num_classes\n217 :         # Test invalid use cases\n218 :         with pytest.raises(ValueError):\n219 :             generator.flow_from_directory(str(tmpdir), color_mode='cmyk')\n220 :         with pytest.raises(ValueError):\n221 :             generator.flow_from_directory(str(tmpdir), class_mode='output')\n222 : \n223 :         # Test usage as Sequence\n224 :         generator = image.ImageDataGenerator()\n225 :         dir_seq = generator.flow_from_directory(str(tmpdir),\n226 :                                                 target_size=(26, 26),\n227 :                                                 color_mode='rgb',\n228 :                                                 batch_size=3,\n229 :                                                 class_mode='categorical')\n230 :         assert len(dir_seq) == count // 3 + 1\n232 :         assert x1.shape == (3, 26, 26, 3)\n235 :         with pytest.raises(ValueError):\n236 :             x1, y1 = dir_seq[9]\n237 : \n238 :         # Test Preprocessing before resize\n239 :         def preprocess_test(img):\n240 :             return img.resize((1, 1))\n241 : \n242 :         generator = image.ImageDataGenerator(preprocessing_function=preprocess_test)\n243 :         dir_seq = generator.flow_from_directory(str(tmpdir),\n244 :                                                 target_size=(26, 26),\n245 :                                                 color_mode='rgb',\n246 :                                                 batch_size=1,\n247 :                                                 class_mode='categorical')\n248 : \n249 :         gen_x1, gen_y1 = dir_seq[1] # error occurred here\n```\n\nIt failed with the following error message and call stack:\n\n```\nE       ValueError: cannot resize an array that references or is referenced\nE       by another array in this way.\nE       Use the np.resize function or refcheck=False\n>       gen_x1, gen_y1 = dir_seq[1]\ntests/keras/preprocessing/image_test.py:249: \nkeras/preprocessing/image.py:827: in __getitem__\nkeras/preprocessing/image.py:827: in __getitem__\n    return self._get_batches_of_transformed_samples(index_array)\nkeras/preprocessing/image.py:1234: in _get_batches_of_transformed_samples\n    x = self.image_data_generator.standardize(x)\nkeras/preprocessing/image.py:584: in standardize\n    x = self.preprocessing_function(x)\n\n>       return img.resize((1, 1))\ntests/keras/preprocessing/image_test.py:240: ValueError\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/pywrap_tensorflow_internal.py:15: DeprecationWarning: the imp module is deprecated in favour of importlib; see the module's documentation for alternative uses\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/framework/dtypes.py:526: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/framework/dtypes.py:527: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/framework/dtypes.py:528: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/framework/dtypes.py:529: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/framework/dtypes.py:530: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/framework/dtypes.py:535: FutureWarning: Passing (type, 1) or '1type' as a synonym of type is deprecated; in a future version of numpy, it will be understood as (type, (1,)) / '(1,)type'.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/util/nest.py:823: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/util/nest.py:824: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/training/checkpointable/data_structures.py:312: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/training/checkpointable/data_structures.py:546: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/tensorflow/python/training/checkpointable/util.py:448: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/setuptools/_distutils/version.py:346: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/pandas/compat/numpy/function.py:114: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n  /home/user/BugsInPy/temp/projects/keras/keras/callbacks.py:18: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working\n/opt/conda/envs/30e8368b55e669bfee75fe8c0764efb3/lib/python3.7/site-packages/coverage/control.py:793: CoverageWarning: No data was collected. (no-data-collected)\n```\n\nStart by calling the `get_covered_packages` function."
+            },
+            "m3": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_covered_packages",
+                    "arguments": "{}"
+                }
+            },
+            "m4": {
+                "role": "function",
+                "name": "get_covered_packages",
+                "content": "[\"keras.layers.pooling\", \"keras.engine.training\", \"keras.backend\", \"keras.layers.core\", \"keras.legacy.layers\", \"keras.layers.advanced_activations\", \"keras.callbacks\", \"keras.engine.topology\", \"keras.layers.cudnn_recurrent\", \"keras.initializers\", \"keras.datasets\", \"keras.layers.merge\", \"keras.utils.generic_utils\", \"keras.layers.convolutional_recurrent\", \"keras.engine\", \"keras.utils.data_utils\", \"keras.layers.normalization\", \"keras.layers.wrappers\", \"keras.utils\", \"keras.layers.embeddings\", \"keras.applications\", \"keras.layers.recurrent\", \"keras\", \"keras.wrappers.scikit_learn\", \"keras.constraints\", \"keras.preprocessing.image\", \"keras.models\", \"keras.backend.tensorflow_backend\", \"keras.preprocessing.text\", \"keras.preprocessing\", \"keras.legacy\", \"keras.layers.noise\", \"keras.optimizers\", \"keras.layers.convolutional\", \"keras.layers.local\", \"keras.applications.mobilenet\", \"keras.regularizers\", \"keras.utils.io_utils\", \"keras.layers\"]"
+            },
+            "m5": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_failing_tests_covered_classes",
+                    "arguments": "{}"
+                }
+            },
+            "m6": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_code_snippet",
+                    "arguments": "{\"signature\": \"keras.preprocessing.image.ImageDataGenerator.__init__\"}"
+                }
+            },
+            "m7": {
+                "role": "function",
+                "name": "get_code_snippet",
+                "content": "\"437 :     def __init__(self,\\n438 :                  featurewise_center=False,\\n439 :                  samplewise_center=False,\\n440 :                  featurewise_std_normalization=False,\\n441 :                  samplewise_std_normalization=False,\\n442 :                  zca_whitening=False,\\n443 :                  zca_epsilon=1e-6,\\n444 :                  rotation_range=0.,\\n445 :                  width_shift_range=0.,\\n446 :                  height_shift_range=0.,\\n447 :                  brightness_range=None,\\n448 :                  shear_range=0.,\\n449 :                  zoom_range=0.,\\n450 :                  channel_shift_range=0.,\\n451 :                  fill_mode='nearest',\\n452 :                  cval=0.,\\n453 :                  horizontal_flip=False,\\n454 :                  vertical_flip=False,\\n455 :                  rescale=None,\\n456 :                  preprocessing_function=None,\\n457 :                  data_format=None,\\n458 :                  validation_split=0.0):\\n459 :         if data_format is None:\\n460 :             data_format = K.image_data_format()\\n461 :         self.featurewise_center = featurewise_center\\n462 :         self.samplewise_center = samplewise_center\\n463 :         self.featurewise_std_normalization = featurewise_std_normalization\\n464 :         self.samplewise_std_normalization = samplewise_std_normalization\\n465 :         self.zca_whitening = zca_whitening\\n466 :         self.zca_epsilon = zca_epsilon\\n467 :         self.rotation_range = rotation_range\\n468 :         self.width_shift_range = width_shift_range\\n469 :         self.height_shift_range = height_shift_range\\n470 :         self.brightness_range = brightness_range\\n471 :         self.shear_range = shear_range\\n472 :         self.zoom_range = zoom_range\\n473 :         self.channel_shift_range = channel_shift_range\\n474 :         self.fill_mode = fill_mode\\n475 :         self.cval = cval\\n476 :         self.horizontal_flip = horizontal_flip\\n477 :         self.vertical_flip = vertical_flip\\n478 :         self.rescale = rescale\\n479 :         self.preprocessing_function = preprocessing_function\\n480 : \\n481 :         if data_format not in {'channels_last', 'channels_first'}:\\n482 :             raise ValueError('`data_format` should be `\\\"channels_last\\\"` (channel after row and '\\n483 :                              'column) or `\\\"channels_first\\\"` (channel before row and column). '\\n484 :                              'Received arg: ', data_format)\\n485 :         self.data_format = data_format\\n486 :         if data_format == 'channels_first':\\n487 :             self.channel_axis = 1\\n488 :             self.row_axis = 2\\n489 :             self.col_axis = 3\\n490 :         if data_format == 'channels_last':\\n491 :             self.channel_axis = 3\\n492 :             self.row_axis = 1\\n493 :             self.col_axis = 2\\n494 :         if validation_split and not 0 < validation_split < 1:\\n495 :             raise ValueError('`validation_split` must be strictly between 0 and 1. '\\n496 :                              ' Received arg: ', validation_split)\\n497 :         self._validation_split = validation_split\\n498 : \\n499 :         self.mean = None\\n500 :         self.std = None\\n501 :         self.principal_components = None\\n502 : \\n503 :         if np.isscalar(zoom_range):\\n504 :             self.zoom_range = [1 - zoom_range, 1 + zoom_range]\\n505 :         elif len(zoom_range) == 2:\\n506 :             self.zoom_range = [zoom_range[0], zoom_range[1]]\\n507 :         else:\\n508 :             raise ValueError('`zoom_range` should be a float or '\\n509 :                              'a tuple or list of two floats. '\\n510 :                              'Received arg: ', zoom_range)\\n511 :         if zca_whitening:\\n512 :             if not featurewise_center:\\n513 :                 self.featurewise_center = True\\n514 :                 warnings.warn('This ImageDataGenerator specifies '\\n515 :                               '`zca_whitening`, which overrides '\\n516 :                               'setting of `featurewise_center`.')\\n517 :             if featurewise_std_normalization:\\n518 :                 self.featurewise_std_normalization = False\\n519 :                 warnings.warn('This ImageDataGenerator specifies '\\n520 :                               '`zca_whitening` '\\n521 :                               'which overrides setting of'\\n522 :                               '`featurewise_std_normalization`.')\\n523 :         if featurewise_std_normalization:\\n524 :             if not featurewise_center:\\n525 :                 self.featurewise_center = True\\n526 :                 warnings.warn('This ImageDataGenerator specifies '\\n527 :                               '`featurewise_std_normalization`, '\\n528 :                               'which overrides setting of '\\n529 :                               '`featurewise_center`.')\\n530 :         if samplewise_std_normalization:\\n531 :             if not samplewise_center:\\n532 :                 self.samplewise_center = True\\n533 :                 warnings.warn('This ImageDataGenerator specifies '\\n534 :                               '`samplewise_std_normalization`, '\\n535 :                               'which overrides setting of '\\n536 :                               '`samplewise_center`.')\""
+            },
+            "m8": {
+                "role": "assistant",
+                "content": "keras.preprocessing.image.ImageDataGenerator.__init__"
+            }
+        }
+    },
+    "buggy_methods": {
+        "keras.preprocessing.image.ImageDataGenerator.standardize(self, x)": {
+            "is_found": false,
+            "matching_answer": []
+        },
+        "keras.preprocessing.image.NumpyArrayIterator._get_batches_of_transformed_samples(self, index_array)": {
+            "is_found": false,
+            "matching_answer": []
+        },
+        "keras.preprocessing.image.DirectoryIterator._get_batches_of_transformed_samples(self, index_array)": {
+            "is_found": false,
+            "matching_answer": []
+        }
+    },
+    "query_costs": [
+        {
+            "total_duration": 1215665152,
+            "load_duration": 32134578,
+            "prompt_eval_count": 3377,
+            "prompt_eval_duration": 922616542,
+            "eval_count": 16,
+            "eval_duration": 259361001
+        },
+        {
+            "total_duration": 232808842,
+            "load_duration": 37235033,
+            "prompt_eval_count": 3377,
+            "prompt_eval_duration": 15172465,
+            "eval_count": 16,
+            "eval_duration": 179333132
+        },
+        {
+            "total_duration": 245884226,
+            "load_duration": 41214199,
+            "prompt_eval_count": 3377,
+            "prompt_eval_duration": 17578914,
+            "eval_count": 16,
+            "eval_duration": 185548535
+        },
+        {
+            "total_duration": 257646174,
+            "load_duration": 35414991,
+            "prompt_eval_count": 3377,
+            "prompt_eval_duration": 17144066,
+            "eval_count": 17,
+            "eval_duration": 203915505
+        },
+        {
+            "total_duration": 230492191,
+            "load_duration": 31713906,
+            "prompt_eval_count": 3377,
+            "prompt_eval_duration": 17882363,
+            "eval_count": 16,
+            "eval_duration": 179375418
+        },
+        {
+            "total_duration": 4899880145,
+            "load_duration": 34718068,
+            "prompt_eval_count": 3377,
+            "prompt_eval_duration": 17373452,
+            "eval_count": 419,
+            "eval_duration": 4846317353
+        },
+        {
+            "total_duration": 351072109,
+            "load_duration": 36112542,
+            "prompt_eval_count": 3377,
+            "prompt_eval_duration": 32888112,
+            "eval_count": 24,
+            "eval_duration": 280696720
+        },
+        {
+            "total_duration": 243418977,
+            "load_duration": 35018672,
+            "prompt_eval_count": 3377,
+            "prompt_eval_duration": 21367314,
+            "eval_count": 16,
+            "eval_duration": 185778382
+        },
+        {
+            "total_duration": 1396003194,
+            "load_duration": 37093583,
+            "prompt_eval_count": 3377,
+            "prompt_eval_duration": 18820165,
+            "eval_count": 115,
+            "eval_duration": 1338220793
+        },
+        {
+            "total_duration": 1415936206,
+            "load_duration": 31232756,
+            "prompt_eval_count": 4096,
+            "prompt_eval_duration": 1126028031,
+            "eval_count": 11,
+            "eval_duration": 255469499
+        },
+        {
+            "total_duration": 1617432466,
+            "load_duration": 35699981,
+            "prompt_eval_count": 4096,
+            "prompt_eval_duration": 1123976058,
+            "eval_count": 27,
+            "eval_duration": 456120032
+        }
+    ],
+    "total_energy": [
+        4039.5729999999953,
+        0.0
+    ],
+    "power_draw": [
+        [
+            260.844,
+            27.949
+        ],
+        [
+            260.844,
+            27.949
+        ],
+        [
+            260.844,
+            27.949
+        ],
+        [
+            260.844,
+            27.949
+        ],
+        [
+            260.844,
+            27.949
+        ],
+        [
+            264.013,
+            27.949
+        ],
+        [
+            264.013,
+            27.949
+        ],
+        [
+            264.013,
+            27.949
+        ],
+        [
+            264.013,
+            27.949
+        ],
+        [
+            264.013,
+            27.949
+        ],
+        [
+            332.586,
+            27.855
+        ],
+        [
+            332.586,
+            27.855
+        ],
+        [
+            332.586,
+            27.855
+        ],
+        [
+            332.586,
+            27.855
+        ],
+        [
+            332.586,
+            27.855
+        ],
+        [
+            320.488,
+            27.855
+        ],
+        [
+            320.488,
+            27.855
+        ],
+        [
+            320.488,
+            27.855
+        ],
+        [
+            320.488,
+            27.855
+        ],
+        [
+            320.488,
+            27.855
+        ],
+        [
+            276.903,
+            27.897
+        ],
+        [
+            276.903,
+            27.897
+        ],
+        [
+            276.903,
+            27.897
+        ],
+        [
+            276.903,
+            27.897
+        ],
+        [
+            276.903,
+            27.897
+        ],
+        [
+            266.902,
+            27.897
+        ],
+        [
+            266.902,
+            27.897
+        ],
+        [
+            266.902,
+            27.897
+        ],
+        [
+            266.902,
+            27.897
+        ],
+        [
+            266.902,
+            27.897
+        ],
+        [
+            265.925,
+            28.123
+        ],
+        [
+            265.925,
+            28.123
+        ],
+        [
+            265.925,
+            28.123
+        ],
+        [
+            265.925,
+            28.123
+        ],
+        [
+            265.925,
+            28.123
+        ],
+        [
+            311.112,
+            28.123
+        ],
+        [
+            311.112,
+            28.123
+        ],
+        [
+            311.112,
+            28.123
+        ],
+        [
+            311.112,
+            28.123
+        ],
+        [
+            311.112,
+            28.123
+        ],
+        [
+            344.743,
+            27.926
+        ],
+        [
+            344.743,
+            27.926
+        ],
+        [
+            344.743,
+            27.926
+        ],
+        [
+            344.743,
+            27.926
+        ],
+        [
+            344.743,
+            27.926
+        ],
+        [
+            345.154,
+            27.926
+        ],
+        [
+            345.154,
+            27.926
+        ],
+        [
+            345.154,
+            27.926
+        ],
+        [
+            345.154,
+            27.926
+        ],
+        [
+            345.154,
+            27.926
+        ],
+        [
+            345.986,
+            27.744
+        ],
+        [
+            345.986,
+            27.744
+        ],
+        [
+            345.986,
+            27.744
+        ],
+        [
+            345.986,
+            27.744
+        ],
+        [
+            345.986,
+            27.744
+        ],
+        [
+            345.731,
+            27.744
+        ],
+        [
+            345.731,
+            27.744
+        ],
+        [
+            345.731,
+            27.744
+        ],
+        [
+            345.731,
+            27.744
+        ],
+        [
+            345.731,
+            27.744
+        ],
+        [
+            344.92,
+            27.818
+        ],
+        [
+            344.92,
+            27.818
+        ],
+        [
+            344.92,
+            27.818
+        ],
+        [
+            344.92,
+            27.818
+        ],
+        [
+            344.92,
+            27.818
+        ],
+        [
+            345.208,
+            27.818
+        ],
+        [
+            345.208,
+            27.818
+        ],
+        [
+            345.208,
+            27.818
+        ],
+        [
+            345.208,
+            27.818
+        ],
+        [
+            345.208,
+            27.818
+        ],
+        [
+            345.477,
+            27.588
+        ],
+        [
+            345.477,
+            27.588
+        ],
+        [
+            345.477,
+            27.588
+        ],
+        [
+            345.477,
+            27.588
+        ],
+        [
+            345.477,
+            27.588
+        ],
+        [
+            344.783,
+            27.588
+        ],
+        [
+            344.783,
+            27.588
+        ],
+        [
+            344.783,
+            27.588
+        ],
+        [
+            344.783,
+            27.588
+        ],
+        [
+            344.783,
+            27.588
+        ],
+        [
+            314.982,
+            27.673
+        ],
+        [
+            314.982,
+            27.673
+        ],
+        [
+            314.982,
+            27.673
+        ],
+        [
+            314.982,
+            27.673
+        ],
+        [
+            314.982,
+            27.673
+        ],
+        [
+            288.973,
+            27.673
+        ],
+        [
+            288.973,
+            27.673
+        ],
+        [
+            288.973,
+            27.673
+        ],
+        [
+            288.973,
+            27.673
+        ],
+        [
+            288.973,
+            27.673
+        ],
+        [
+            292.809,
+            28.021
+        ],
+        [
+            292.809,
+            28.021
+        ],
+        [
+            292.809,
+            28.021
+        ],
+        [
+            292.809,
+            28.021
+        ],
+        [
+            292.809,
+            28.021
+        ],
+        [
+            319.247,
+            28.021
+        ],
+        [
+            319.247,
+            28.021
+        ],
+        [
+            319.247,
+            28.021
+        ],
+        [
+            319.247,
+            28.021
+        ],
+        [
+            319.247,
+            28.021
+        ],
+        [
+            345.9,
+            27.904
+        ],
+        [
+            345.9,
+            27.904
+        ],
+        [
+            345.9,
+            27.904
+        ],
+        [
+            345.9,
+            27.904
+        ],
+        [
+            345.9,
+            27.904
+        ],
+        [
+            320.813,
+            27.904
+        ],
+        [
+            320.813,
+            27.904
+        ],
+        [
+            320.813,
+            27.904
+        ],
+        [
+            320.813,
+            27.904
+        ],
+        [
+            320.813,
+            27.904
+        ],
+        [
+            324.085,
+            27.88
+        ],
+        [
+            324.085,
+            27.88
+        ],
+        [
+            324.085,
+            27.88
+        ],
+        [
+            324.085,
+            27.88
+        ],
+        [
+            324.085,
+            27.88
+        ],
+        [
+            347.009,
+            27.88
+        ],
+        [
+            347.009,
+            27.88
+        ],
+        [
+            347.009,
+            27.88
+        ],
+        [
+            347.009,
+            27.88
+        ],
+        [
+            347.009,
+            27.88
+        ],
+        [
+            318.219,
+            28.107
+        ],
+        [
+            318.219,
+            28.107
+        ],
+        [
+            318.219,
+            28.107
+        ],
+        [
+            318.219,
+            28.107
+        ],
+        [
+            318.219,
+            28.107
+        ],
+        [
+            321.437,
+            28.107
+        ],
+        [
+            321.437,
+            28.107
+        ],
+        [
+            321.437,
+            28.107
+        ],
+        [
+            321.437,
+            28.107
+        ],
+        [
+            321.437,
+            28.107
+        ],
+        [
+            346.359,
+            28.047
+        ],
+        [
+            346.359,
+            28.047
+        ]
+    ],
+    "gpu_activity": [
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            94,
+            0
+        ],
+        [
+            94,
+            0
+        ],
+        [
+            94,
+            0
+        ],
+        [
+            94,
+            0
+        ],
+        [
+            94,
+            0
+        ],
+        [
+            94,
+            0
+        ],
+        [
+            94,
+            0
+        ],
+        [
+            94,
+            0
+        ],
+        [
+            94,
+            0
+        ],
+        [
+            94,
+            0
+        ],
+        [
+            30,
+            0
+        ],
+        [
+            30,
+            0
+        ],
+        [
+            30,
+            0
+        ],
+        [
+            30,
+            0
+        ],
+        [
+            30,
+            0
+        ],
+        [
+            30,
+            0
+        ],
+        [
+            30,
+            0
+        ],
+        [
+            30,
+            0
+        ],
+        [
+            30,
+            0
+        ],
+        [
+            30,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            80,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            1,
+            0
+        ],
+        [
+            1,
+            0
+        ],
+        [
+            1,
+            0
+        ],
+        [
+            1,
+            0
+        ],
+        [
+            1,
+            0
+        ],
+        [
+            1,
+            0
+        ],
+        [
+            1,
+            0
+        ],
+        [
+            1,
+            0
+        ],
+        [
+            1,
+            0
+        ],
+        [
+            1,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            78,
+            0
+        ],
+        [
+            99,
+            0
+        ],
+        [
+            99,
+            0
+        ],
+        [
+            99,
+            0
+        ],
+        [
+            99,
+            0
+        ],
+        [
+            99,
+            0
+        ],
+        [
+            99,
+            0
+        ],
+        [
+            99,
+            0
+        ],
+        [
+            99,
+            0
+        ],
+        [
+            99,
+            0
+        ],
+        [
+            99,
+            0
+        ],
+        [
+            48,
+            0
+        ],
+        [
+            48,
+            0
+        ],
+        [
+            48,
+            0
+        ],
+        [
+            48,
+            0
+        ],
+        [
+            48,
+            0
+        ],
+        [
+            48,
+            0
+        ],
+        [
+            48,
+            0
+        ],
+        [
+            48,
+            0
+        ],
+        [
+            48,
+            0
+        ],
+        [
+            48,
+            0
+        ],
+        [
+            100,
+            0
+        ],
+        [
+            100,
+            0
+        ],
+        [
+            100,
+            0
+        ],
+        [
+            100,
+            0
+        ],
+        [
+            100,
+            0
+        ],
+        [
+            100,
+            0
+        ]
+    ]
+}

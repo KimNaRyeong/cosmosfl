@@ -1,0 +1,1516 @@
+{
+    "time_taken": 15.017354726791382,
+    "messages": [
+        {
+            "role": "system",
+            "content": "You are a debugging assistant. You will be presented with a failing test, and tools (functions) to access the source code of the system under test (SUT). Your task is to provide a step-by-step explanation of how the bug occurred, based on the failing test and the information you retrieved using tools about the SUT. You will be given 9 chances to interact with functions to gather relevant information. An example answer would look like follows.\n\n```\nThe test `testGenerateURLFragment` checks whether HTML entities such as `&quot;` are correctly escaped to their corresponding character by the `StandardToolTipTagFragmentGenerator.generateToolTipFragment` method. However, the test failure indicates that this is not the case. Following the execution path, we find that `StandardToolTipTagFragmentGenerator.generateToolTipFragment` is not escaping any HTML code; instead, it is using its input `toolTipText` as is. Consequently, un-escaped strings are being returned, which leads to the error demonstrated by the test.\n```\n\nYou have the following functions available to debug the case:\n\n1. get_failing_tests_covered_classes(package_name) - This function retrieves a set of classes covered by failing tests and groups them by their package names. Call example: get_failing_tests_covered_classes(\"my.package\")\n2. get_failing_tests_covered_methods_for_class(class_name) - This function takes a class_name as input and returns a list of method names covered by failing tests for the specified class in the program under test. Call example: get_failing_tests_covered_methods_for_class(\"my.favorite.Class\")\n3. get_code_snippet(method_signature) - This function takes a signature as input and returns the corresponding code snippet for the method or field. Call example: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n\nTo make a function call, respond like the following:\n\n```\nFunction call: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n```\n\nIf you are done and ready to generate a response, respond like the following:\n\n```\nConclusion: The test `testGenerateURLFragment` checks...\n```\n\nYou will keep these instructions in mind while proceeding.\n\nAfter providing this diagnosis, you will be prompted to suggest which methods would be the best locations to be fixed. The answers should be in the form of `ClassName.MethodName(ArgType1, ArgType2, ...)` without commentary (one per line), as your answer will be automatically processed before finally being presented to the user."
+        },
+        {
+            "role": "user",
+            "content": "The test `['tests.shells.test_bash.TestBash.test_app_alias_variables_correctly_set()']` failed.\nThe test looks like:\n\n```python\n49 :     def test_app_alias_variables_correctly_set(self, shell):\n50 :         alias = shell.app_alias('fuck')\n51 :         assert \"alias fuck='TF_CMD=$(TF_ALIAS\" in alias # error occurred here\n```\n\nIt failed with the following error message and call stack:\n\n```\nE       assert \"alias fuck='TF_CMD=$(TF_ALIAS\" in \"TF_ALIAS=fuck alias fuck='PYTHONIOENCODING=utf-8 TF_CMD=$(TF_SHELL_ALIASES=$(alias) thefuck $(fc -ln -1)) &&  eval $TF_CMD && history -s $TF_CMD'\"\n>       assert \"alias fuck='TF_CMD=$(TF_ALIAS\" in alias\ntests/shells/test_bash.py:51: AssertionError\n```\n\nStart by calling the `get_covered_packages` function."
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_covered_packages",
+                "arguments": "{}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_covered_packages",
+            "content": "[\"thefuck.const\", \"thefuck\", \"thefuck.shells.generic\", \"thefuck.ui\", \"thefuck.rules\", \"thefuck.shells.tcsh\", \"thefuck.shells.bash\", \"thefuck.shells.fish\", \"thefuck.specific\", \"thefuck.types\", \"thefuck.conf\", \"thefuck.shells.zsh\"]"
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_failing_tests_covered_methods_for_class",
+                "arguments": "{\"class_name\": \"tests.shells.test_bash.TestBash\"}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_failing_tests_covered_methods_for_class",
+            "content": "{\"error_message\": \"You can obtain test-related information via the `get_code_snippet()` function.\"}"
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_code_snippet",
+                "arguments": "{\"signature\": \"thefuck.shells.bash.Bash.app_alias\"}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_code_snippet",
+            "content": "\" 8 :     def app_alias(self, fuck):\\n 9 :         alias = \\\"TF_ALIAS={0}\\\" \\\\\\n10 :                 \\\" alias {0}='PYTHONIOENCODING=utf-8\\\" \\\\\\n11 :                 \\\" TF_CMD=$(TF_SHELL_ALIASES=$(alias) thefuck $(fc -ln -1)) && \\\" \\\\\\n12 :                 \\\" eval $TF_CMD\\\".format(fuck)\\n13 : \\n14 :         if settings.alter_history:\\n15 :             return alias + \\\" && history -s $TF_CMD'\\\"\\n16 :         else:\\n17 :             return alias + \\\"'\\\"\""
+        },
+        {
+            "role": "assistant",
+            "content": "The test `test_app_alias_variables_correctly_set` in the `tests.shells.test_bash.TestBash` class checks whether the `app_alias` method of the `Bash` class correctly sets an alias. The test fails because the output from the `app_alias` method does not contain the expected substring `\"alias fuck='TF_CMD=$(TF_ALIAS\"`.\n\nUpon examining the code snippet for the `app_alias` method, we see that it constructs a string to set an alias using f-strings. However, the constructed string is not properly formatted to include the expected output. Specifically, the backslashes used in the f-string are being interpreted as escape characters, which is causing the assertion to fail.\n\nTo fix this issue, we need to ensure that the backslashes in the f-string are treated as literal characters. This can be done by using a raw string or by doubling the backslashes.\n\nHere is the corrected code snippet:\n\n```python\n8 :     def app_alias(self, fuck):\n9 :         alias = r\"TF_ALIAS={0} \\\\\\n          alias {0}='PYTHONIOENCODING=utf-8 \\\\\\n          TF_CMD=$(TF_SHELL_ALIASES=$(alias) thefuck $(fc -ln -1)) && \\\\\\n          eval $TF_CMD'\".format(fuck)\n10 :\n11 :         if settings.alter_history:\n12 :             return alias + \" && history -s $TF_CMD'\"\n13 :         else:\n14 :             return alias + \"'\"\n```\n\nAlternatively, we can double the backslashes:\n\n```python\n8 :     def app_alias(self, fuck):\n9 :         alias = \"TF_ALIAS={0} \\\\\\n          alias {0}='PYTHONIOENCODING=utf-8 \\\\\\n          TF_CMD=$(TF_SHELL_ALIASES=$(alias) thefuck $(fc -ln -1)) && \\\\\\n          eval $TF_CMD'\".format(fuck)\n10 :\n11 :         if settings.alter_history:\n12 :             return alias + \" && history -s $TF_CMD'\"\n13 :         else:\n14 :             return alias + \"'\"\n```\n\nBoth of these changes will ensure that the backslashes in the f-string are treated as literal characters, allowing the assertion to pass.\n\nConclusion: The test `test_app_alias_variables_correctly_set` checks whether the `app_alias` method of the `Bash` class correctly sets an alias. The failure is due to improperly formatted backslashes in the constructed string. To fix this issue, ensure that the backslashes are treated as literal characters by using a raw string or by doubling them.\n\nFix suggestions:\n\n```\nthefuck.shells.bash.Bash.app_alias(str)\n```"
+        },
+        {
+            "role": "user",
+            "content": "Based on the available information, provide the signatures of the most likely culprit methods for the bug. Your answer will be processed automatically, so make sure to only answer with the accurate signatures of all likely culprits (in `ClassName.MethodName(ArgType1, ArgType2, ...)` format), without commentary (one per line). "
+        },
+        {
+            "role": "assistant",
+            "content": "```\nthefuck.shells.bash.Bash.app_alias(str)\n```"
+        }
+    ],
+    "interaction_records": {
+        "step_histories": [
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m6"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m7"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4",
+                    "m7",
+                    "m8"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4",
+                    "m7",
+                    "m8"
+                ],
+                "response_message": "m9"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4",
+                    "m7",
+                    "m8",
+                    "m9",
+                    "m10"
+                ],
+                "response_message": "m11"
+            }
+        ],
+        "mid_to_message": {
+            "m1": {
+                "role": "system",
+                "content": "You are a debugging assistant. You will be presented with a failing test, and tools (functions) to access the source code of the system under test (SUT). Your task is to provide a step-by-step explanation of how the bug occurred, based on the failing test and the information you retrieved using tools about the SUT. You will be given 9 chances to interact with functions to gather relevant information. An example answer would look like follows.\n\n```\nThe test `testGenerateURLFragment` checks whether HTML entities such as `&quot;` are correctly escaped to their corresponding character by the `StandardToolTipTagFragmentGenerator.generateToolTipFragment` method. However, the test failure indicates that this is not the case. Following the execution path, we find that `StandardToolTipTagFragmentGenerator.generateToolTipFragment` is not escaping any HTML code; instead, it is using its input `toolTipText` as is. Consequently, un-escaped strings are being returned, which leads to the error demonstrated by the test.\n```\n\nYou have the following functions available to debug the case:\n\n1. get_failing_tests_covered_classes(package_name) - This function retrieves a set of classes covered by failing tests and groups them by their package names. Call example: get_failing_tests_covered_classes(\"my.package\")\n2. get_failing_tests_covered_methods_for_class(class_name) - This function takes a class_name as input and returns a list of method names covered by failing tests for the specified class in the program under test. Call example: get_failing_tests_covered_methods_for_class(\"my.favorite.Class\")\n3. get_code_snippet(method_signature) - This function takes a signature as input and returns the corresponding code snippet for the method or field. Call example: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n\nTo make a function call, respond like the following:\n\n```\nFunction call: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n```\n\nIf you are done and ready to generate a response, respond like the following:\n\n```\nConclusion: The test `testGenerateURLFragment` checks...\n```\n\nYou will keep these instructions in mind while proceeding.\n\nAfter providing this diagnosis, you will be prompted to suggest which methods would be the best locations to be fixed. The answers should be in the form of `ClassName.MethodName(ArgType1, ArgType2, ...)` without commentary (one per line), as your answer will be automatically processed before finally being presented to the user."
+            },
+            "m2": {
+                "role": "user",
+                "content": "The test `['tests.shells.test_bash.TestBash.test_app_alias_variables_correctly_set()']` failed.\nThe test looks like:\n\n```python\n49 :     def test_app_alias_variables_correctly_set(self, shell):\n50 :         alias = shell.app_alias('fuck')\n51 :         assert \"alias fuck='TF_CMD=$(TF_ALIAS\" in alias # error occurred here\n```\n\nIt failed with the following error message and call stack:\n\n```\nE       assert \"alias fuck='TF_CMD=$(TF_ALIAS\" in \"TF_ALIAS=fuck alias fuck='PYTHONIOENCODING=utf-8 TF_CMD=$(TF_SHELL_ALIASES=$(alias) thefuck $(fc -ln -1)) &&  eval $TF_CMD && history -s $TF_CMD'\"\n>       assert \"alias fuck='TF_CMD=$(TF_ALIAS\" in alias\ntests/shells/test_bash.py:51: AssertionError\n```\n\nStart by calling the `get_covered_packages` function."
+            },
+            "m3": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_covered_packages",
+                    "arguments": "{}"
+                }
+            },
+            "m4": {
+                "role": "function",
+                "name": "get_covered_packages",
+                "content": "[\"thefuck.const\", \"thefuck\", \"thefuck.shells.generic\", \"thefuck.ui\", \"thefuck.rules\", \"thefuck.shells.tcsh\", \"thefuck.shells.bash\", \"thefuck.shells.fish\", \"thefuck.specific\", \"thefuck.types\", \"thefuck.conf\", \"thefuck.shells.zsh\"]"
+            },
+            "m5": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_failing_tests_covered_classes",
+                    "arguments": "{}"
+                }
+            },
+            "m6": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_covered_classes",
+                    "arguments": "{\"signature\": \"thefuck.shells.bash\"}"
+                }
+            },
+            "m7": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_failing_tests_covered_methods_for_class",
+                    "arguments": "{\"class_name\": \"tests.shells.test_bash.TestBash\"}"
+                }
+            },
+            "m8": {
+                "role": "function",
+                "name": "get_failing_tests_covered_methods_for_class",
+                "content": "{\"error_message\": \"You can obtain test-related information via the `get_code_snippet()` function.\"}"
+            },
+            "m9": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_code_snippet",
+                    "arguments": "{\"signature\": \"thefuck.shells.bash.Bash.app_alias\"}"
+                }
+            },
+            "m10": {
+                "role": "function",
+                "name": "get_code_snippet",
+                "content": "\" 8 :     def app_alias(self, fuck):\\n 9 :         alias = \\\"TF_ALIAS={0}\\\" \\\\\\n10 :                 \\\" alias {0}='PYTHONIOENCODING=utf-8\\\" \\\\\\n11 :                 \\\" TF_CMD=$(TF_SHELL_ALIASES=$(alias) thefuck $(fc -ln -1)) && \\\" \\\\\\n12 :                 \\\" eval $TF_CMD\\\".format(fuck)\\n13 : \\n14 :         if settings.alter_history:\\n15 :             return alias + \\\" && history -s $TF_CMD'\\\"\\n16 :         else:\\n17 :             return alias + \\\"'\\\"\""
+            },
+            "m11": {
+                "role": "assistant",
+                "content": "The test `test_app_alias_variables_correctly_set` in the `tests.shells.test_bash.TestBash` class checks whether the `app_alias` method of the `Bash` class correctly sets an alias. The test fails because the output from the `app_alias` method does not contain the expected substring `\"alias fuck='TF_CMD=$(TF_ALIAS\"`.\n\nUpon examining the code snippet for the `app_alias` method, we see that it constructs a string to set an alias using f-strings. However, the constructed string is not properly formatted to include the expected output. Specifically, the backslashes used in the f-string are being interpreted as escape characters, which is causing the assertion to fail.\n\nTo fix this issue, we need to ensure that the backslashes in the f-string are treated as literal characters. This can be done by using a raw string or by doubling the backslashes.\n\nHere is the corrected code snippet:\n\n```python\n8 :     def app_alias(self, fuck):\n9 :         alias = r\"TF_ALIAS={0} \\\\\\n          alias {0}='PYTHONIOENCODING=utf-8 \\\\\\n          TF_CMD=$(TF_SHELL_ALIASES=$(alias) thefuck $(fc -ln -1)) && \\\\\\n          eval $TF_CMD'\".format(fuck)\n10 :\n11 :         if settings.alter_history:\n12 :             return alias + \" && history -s $TF_CMD'\"\n13 :         else:\n14 :             return alias + \"'\"\n```\n\nAlternatively, we can double the backslashes:\n\n```python\n8 :     def app_alias(self, fuck):\n9 :         alias = \"TF_ALIAS={0} \\\\\\n          alias {0}='PYTHONIOENCODING=utf-8 \\\\\\n          TF_CMD=$(TF_SHELL_ALIASES=$(alias) thefuck $(fc -ln -1)) && \\\\\\n          eval $TF_CMD'\".format(fuck)\n10 :\n11 :         if settings.alter_history:\n12 :             return alias + \" && history -s $TF_CMD'\"\n13 :         else:\n14 :             return alias + \"'\"\n```\n\nBoth of these changes will ensure that the backslashes in the f-string are treated as literal characters, allowing the assertion to pass.\n\nConclusion: The test `test_app_alias_variables_correctly_set` checks whether the `app_alias` method of the `Bash` class correctly sets an alias. The failure is due to improperly formatted backslashes in the constructed string. To fix this issue, ensure that the backslashes are treated as literal characters by using a raw string or by doubling them.\n\nFix suggestions:\n\n```\nthefuck.shells.bash.Bash.app_alias(str)\n```"
+            }
+        }
+    },
+    "buggy_methods": {
+        "thefuck.shells.bash.Bash.app_alias(self, fuck)": {
+            "is_found": true,
+            "matching_answer": [
+                "thefuck.shells.bash.Bash.app_alias(str)"
+            ]
+        },
+        "thefuck.shells.fish.Fish.app_alias(self, fuck)": {
+            "is_found": false,
+            "matching_answer": []
+        },
+        "thefuck.shells.zsh.Zsh.app_alias(self, alias_name)": {
+            "is_found": false,
+            "matching_answer": []
+        }
+    },
+    "query_costs": [
+        {
+            "total_duration": 1353265626,
+            "load_duration": 21042432,
+            "prompt_eval_count": 853,
+            "prompt_eval_duration": 29619977,
+            "eval_count": 122,
+            "eval_duration": 1301886946
+        },
+        {
+            "total_duration": 242757253,
+            "load_duration": 33618943,
+            "prompt_eval_count": 853,
+            "prompt_eval_duration": 18114891,
+            "eval_count": 19,
+            "eval_duration": 190123254
+        },
+        {
+            "total_duration": 275875905,
+            "load_duration": 33822973,
+            "prompt_eval_count": 853,
+            "prompt_eval_duration": 22210154,
+            "eval_count": 21,
+            "eval_duration": 218892357
+        },
+        {
+            "total_duration": 222140188,
+            "load_duration": 31977854,
+            "prompt_eval_count": 853,
+            "prompt_eval_duration": 19156291,
+            "eval_count": 17,
+            "eval_duration": 170035185
+        },
+        {
+            "total_duration": 4052087878,
+            "load_duration": 34216013,
+            "prompt_eval_count": 853,
+            "prompt_eval_duration": 19471368,
+            "eval_count": 390,
+            "eval_duration": 3997420939
+        },
+        {
+            "total_duration": 303188625,
+            "load_duration": 33188280,
+            "prompt_eval_count": 853,
+            "prompt_eval_duration": 21235830,
+            "eval_count": 24,
+            "eval_duration": 247688212
+        },
+        {
+            "total_duration": 566094255,
+            "load_duration": 33563878,
+            "prompt_eval_count": 906,
+            "prompt_eval_duration": 23557655,
+            "eval_count": 48,
+            "eval_duration": 507807288
+        },
+        {
+            "total_duration": 299193034,
+            "load_duration": 33365195,
+            "prompt_eval_count": 906,
+            "prompt_eval_duration": 23364947,
+            "eval_count": 23,
+            "eval_duration": 241518834
+        },
+        {
+            "total_duration": 6039511738,
+            "load_duration": 34337115,
+            "prompt_eval_count": 1083,
+            "prompt_eval_duration": 28931430,
+            "eval_count": 574,
+            "eval_duration": 5975155107
+        },
+        {
+            "total_duration": 402943109,
+            "load_duration": 33418280,
+            "prompt_eval_count": 1731,
+            "prompt_eval_duration": 153740973,
+            "eval_count": 17,
+            "eval_duration": 214692923
+        }
+    ],
+    "total_energy": [
+        4815.452900000001,
+        0.0
+    ],
+    "power_draw": [
+        [
+            246.409,
+            27.159
+        ],
+        [
+            246.409,
+            27.159
+        ],
+        [
+            246.409,
+            27.159
+        ],
+        [
+            246.409,
+            27.159
+        ],
+        [
+            246.409,
+            27.159
+        ],
+        [
+            267.162,
+            27.159
+        ],
+        [
+            267.162,
+            27.159
+        ],
+        [
+            267.162,
+            27.159
+        ],
+        [
+            267.162,
+            27.159
+        ],
+        [
+            267.162,
+            27.159
+        ],
+        [
+            335.709,
+            27.058
+        ],
+        [
+            335.709,
+            27.058
+        ],
+        [
+            335.709,
+            27.058
+        ],
+        [
+            335.709,
+            27.058
+        ],
+        [
+            335.709,
+            27.058
+        ],
+        [
+            320.419,
+            27.058
+        ],
+        [
+            320.419,
+            27.058
+        ],
+        [
+            320.419,
+            27.058
+        ],
+        [
+            320.419,
+            27.058
+        ],
+        [
+            320.419,
+            27.058
+        ],
+        [
+            292.694,
+            27.085
+        ],
+        [
+            292.694,
+            27.085
+        ],
+        [
+            292.694,
+            27.085
+        ],
+        [
+            292.694,
+            27.085
+        ],
+        [
+            292.694,
+            27.085
+        ],
+        [
+            268.627,
+            27.085
+        ],
+        [
+            268.627,
+            27.085
+        ],
+        [
+            268.627,
+            27.085
+        ],
+        [
+            268.627,
+            27.085
+        ],
+        [
+            268.627,
+            27.085
+        ],
+        [
+            297.066,
+            27.173
+        ],
+        [
+            297.066,
+            27.173
+        ],
+        [
+            297.066,
+            27.173
+        ],
+        [
+            297.066,
+            27.173
+        ],
+        [
+            297.066,
+            27.173
+        ],
+        [
+            323.414,
+            27.173
+        ],
+        [
+            323.414,
+            27.173
+        ],
+        [
+            323.414,
+            27.173
+        ],
+        [
+            323.414,
+            27.173
+        ],
+        [
+            323.414,
+            27.173
+        ],
+        [
+            349.396,
+            27.047
+        ],
+        [
+            349.396,
+            27.047
+        ],
+        [
+            349.396,
+            27.047
+        ],
+        [
+            349.396,
+            27.047
+        ],
+        [
+            349.396,
+            27.047
+        ],
+        [
+            347.198,
+            27.047
+        ],
+        [
+            347.198,
+            27.047
+        ],
+        [
+            347.198,
+            27.047
+        ],
+        [
+            347.198,
+            27.047
+        ],
+        [
+            347.198,
+            27.047
+        ],
+        [
+            348.854,
+            26.981
+        ],
+        [
+            348.854,
+            26.981
+        ],
+        [
+            348.854,
+            26.981
+        ],
+        [
+            348.854,
+            26.981
+        ],
+        [
+            348.854,
+            26.981
+        ],
+        [
+            348.657,
+            26.981
+        ],
+        [
+            348.657,
+            26.981
+        ],
+        [
+            348.657,
+            26.981
+        ],
+        [
+            348.657,
+            26.981
+        ],
+        [
+            348.657,
+            26.981
+        ],
+        [
+            347.478,
+            26.829
+        ],
+        [
+            347.478,
+            26.829
+        ],
+        [
+            347.478,
+            26.829
+        ],
+        [
+            347.478,
+            26.829
+        ],
+        [
+            347.478,
+            26.829
+        ],
+        [
+            348.218,
+            26.829
+        ],
+        [
+            348.218,
+            26.829
+        ],
+        [
+            348.218,
+            26.829
+        ],
+        [
+            348.218,
+            26.829
+        ],
+        [
+            348.218,
+            26.829
+        ],
+        [
+            321.185,
+            26.815
+        ],
+        [
+            321.185,
+            26.815
+        ],
+        [
+            321.185,
+            26.815
+        ],
+        [
+            321.185,
+            26.815
+        ],
+        [
+            321.185,
+            26.815
+        ],
+        [
+            292.181,
+            26.815
+        ],
+        [
+            292.181,
+            26.815
+        ],
+        [
+            292.181,
+            26.815
+        ],
+        [
+            292.181,
+            26.815
+        ],
+        [
+            292.181,
+            26.815
+        ],
+        [
+            291.132,
+            27.123
+        ],
+        [
+            291.132,
+            27.123
+        ],
+        [
+            291.132,
+            27.123
+        ],
+        [
+            291.132,
+            27.123
+        ],
+        [
+            291.132,
+            27.123
+        ],
+        [
+            290.487,
+            27.123
+        ],
+        [
+            290.487,
+            27.123
+        ],
+        [
+            290.487,
+            27.123
+        ],
+        [
+            290.487,
+            27.123
+        ],
+        [
+            290.487,
+            27.123
+        ],
+        [
+            322.165,
+            27.102
+        ],
+        [
+            322.165,
+            27.102
+        ],
+        [
+            322.165,
+            27.102
+        ],
+        [
+            322.165,
+            27.102
+        ],
+        [
+            322.165,
+            27.102
+        ],
+        [
+            348.047,
+            27.102
+        ],
+        [
+            348.047,
+            27.102
+        ],
+        [
+            348.047,
+            27.102
+        ],
+        [
+            348.047,
+            27.102
+        ],
+        [
+            348.047,
+            27.102
+        ],
+        [
+            347.396,
+            26.966
+        ],
+        [
+            347.396,
+            26.966
+        ],
+        [
+            347.396,
+            26.966
+        ],
+        [
+            347.396,
+            26.966
+        ],
+        [
+            347.396,
+            26.966
+        ],
+        [
+            348.354,
+            26.966
+        ],
+        [
+            348.354,
+            26.966
+        ],
+        [
+            348.354,
+            26.966
+        ],
+        [
+            348.354,
+            26.966
+        ],
+        [
+            348.354,
+            26.966
+        ],
+        [
+            347.287,
+            27.018
+        ],
+        [
+            347.287,
+            27.018
+        ],
+        [
+            347.287,
+            27.018
+        ],
+        [
+            347.287,
+            27.018
+        ],
+        [
+            347.287,
+            27.018
+        ],
+        [
+            348.782,
+            27.018
+        ],
+        [
+            348.782,
+            27.018
+        ],
+        [
+            348.782,
+            27.018
+        ],
+        [
+            348.782,
+            27.018
+        ],
+        [
+            348.782,
+            27.018
+        ],
+        [
+            348.022,
+            26.988
+        ],
+        [
+            348.022,
+            26.988
+        ],
+        [
+            348.022,
+            26.988
+        ],
+        [
+            348.022,
+            26.988
+        ],
+        [
+            348.022,
+            26.988
+        ],
+        [
+            348.184,
+            26.988
+        ],
+        [
+            348.184,
+            26.988
+        ],
+        [
+            348.184,
+            26.988
+        ],
+        [
+            348.184,
+            26.988
+        ],
+        [
+            348.184,
+            26.988
+        ],
+        [
+            348.404,
+            26.988
+        ],
+        [
+            348.404,
+            26.988
+        ],
+        [
+            348.404,
+            26.988
+        ],
+        [
+            348.404,
+            26.988
+        ],
+        [
+            348.404,
+            26.988
+        ],
+        [
+            348.514,
+            26.988
+        ],
+        [
+            348.514,
+            26.988
+        ],
+        [
+            348.514,
+            26.988
+        ],
+        [
+            348.514,
+            26.988
+        ],
+        [
+            348.514,
+            26.988
+        ],
+        [
+            348.183,
+            26.973
+        ],
+        [
+            348.183,
+            26.973
+        ],
+        [
+            348.183,
+            26.973
+        ],
+        [
+            348.183,
+            26.973
+        ],
+        [
+            348.183,
+            26.973
+        ],
+        [
+            318.803,
+            26.973
+        ],
+        [
+            318.803,
+            26.973
+        ],
+        [
+            318.803,
+            26.973
+        ]
+    ],
+    "gpu_activity": [
+        [
+            10,
+            0
+        ],
+        [
+            10,
+            0
+        ],
+        [
+            10,
+            0
+        ],
+        [
+            10,
+            0
+        ],
+        [
+            10,
+            0
+        ],
+        [
+            10,
+            0
+        ],
+        [
+            70,
+            0
+        ],
+        [
+            70,
+            0
+        ],
+        [
+            70,
+            0
+        ],
+        [
+            70,
+            0
+        ],
+        [
+            70,
+            0
+        ],
+        [
+            70,
+            0
+        ],
+        [
+            70,
+            0
+        ],
+        [
+            70,
+            0
+        ],
+        [
+            70,
+            0
+        ],
+        [
+            70,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            7,
+            0
+        ],
+        [
+            7,
+            0
+        ],
+        [
+            7,
+            0
+        ],
+        [
+            7,
+            0
+        ],
+        [
+            7,
+            0
+        ],
+        [
+            7,
+            0
+        ],
+        [
+            7,
+            0
+        ],
+        [
+            7,
+            0
+        ],
+        [
+            7,
+            0
+        ],
+        [
+            7,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            66,
+            0
+        ],
+        [
+            66,
+            0
+        ],
+        [
+            66,
+            0
+        ],
+        [
+            66,
+            0
+        ],
+        [
+            66,
+            0
+        ],
+        [
+            66,
+            0
+        ],
+        [
+            66,
+            0
+        ],
+        [
+            66,
+            0
+        ],
+        [
+            66,
+            0
+        ],
+        [
+            66,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            74,
+            0
+        ],
+        [
+            74,
+            0
+        ],
+        [
+            74,
+            0
+        ],
+        [
+            74,
+            0
+        ],
+        [
+            74,
+            0
+        ],
+        [
+            74,
+            0
+        ],
+        [
+            74,
+            0
+        ],
+        [
+            74,
+            0
+        ],
+        [
+            74,
+            0
+        ],
+        [
+            74,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            72,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            98,
+            0
+        ],
+        [
+            98,
+            0
+        ]
+    ]
+}

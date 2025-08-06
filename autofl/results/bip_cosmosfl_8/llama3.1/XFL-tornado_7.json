@@ -1,0 +1,1039 @@
+{
+    "time_taken": 10.374431133270264,
+    "messages": [
+        {
+            "role": "system",
+            "content": "You are a debugging assistant. You will be presented with a failing test, and tools (functions) to access the source code of the system under test (SUT). Your task is to provide a step-by-step explanation of how the bug occurred, based on the failing test and the information you retrieved using tools about the SUT. You will be given 9 chances to interact with functions to gather relevant information. An example answer would look like follows.\n\n```\nThe test `testGenerateURLFragment` checks whether HTML entities such as `&quot;` are correctly escaped to their corresponding character by the `StandardToolTipTagFragmentGenerator.generateToolTipFragment` method. However, the test failure indicates that this is not the case. Following the execution path, we find that `StandardToolTipTagFragmentGenerator.generateToolTipFragment` is not escaping any HTML code; instead, it is using its input `toolTipText` as is. Consequently, un-escaped strings are being returned, which leads to the error demonstrated by the test.\n```\n\nYou have the following functions available to debug the case:\n\n1. get_failing_tests_covered_classes(package_name) - This function retrieves a set of classes covered by failing tests and groups them by their package names. Call example: get_failing_tests_covered_classes(\"my.package\")\n2. get_failing_tests_covered_methods_for_class(class_name) - This function takes a class_name as input and returns a list of method names covered by failing tests for the specified class in the program under test. Call example: get_failing_tests_covered_methods_for_class(\"my.favorite.Class\")\n3. get_code_snippet(method_signature) - This function takes a signature as input and returns the corresponding code snippet for the method or field. Call example: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n\nTo make a function call, respond like the following:\n\n```\nFunction call: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n```\n\nIf you are done and ready to generate a response, respond like the following:\n\n```\nConclusion: The test `testGenerateURLFragment` checks...\n```\n\nYou will keep these instructions in mind while proceeding.\n\nAfter providing this diagnosis, you will be prompted to suggest which methods would be the best locations to be fixed. The answers should be in the form of `ClassName.MethodName(ArgType1, ArgType2, ...)` without commentary (one per line), as your answer will be automatically processed before finally being presented to the user."
+        },
+        {
+            "role": "user",
+            "content": "The test `['tornado.test.ioloop_test.TestIOLoopFutures.test_run_in_executor_native(self)']` failed.\nThe test looks like:\n\n```python\n626 :     def test_run_in_executor_native(self):\n627 :         event1 = threading.Event()\n628 :         event2 = threading.Event()\n629 : \n630 :         def sync_func(self_event, other_event):\n631 :             self_event.set()\n632 :             other_event.wait()\n633 :             return self_event\n634 : \n635 :         # Go through an async wrapper to ensure that the result of\n636 :         # run_in_executor works with await and not just gen.coroutine\n637 :         # (simply passing the underlying concurrrent future would do that).\n638 :         namespace = exec_test(globals(), locals(), \"\"\"\n639 :             async def async_wrapper(self_event, other_event):\n640 :                 return await IOLoop.current().run_in_executor(\n641 :                     None, sync_func, self_event, other_event)\n642 :         \"\"\")\n643 : \n644 :         res = yield [\n645 :             namespace[\"async_wrapper\"](event1, event2),\n646 :             namespace[\"async_wrapper\"](event2, event1) # error occurred here\n647 :             ]\n```\n\nIt failed with the following error message and call stack:\n\n```\nTypeError: object Future can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/testing.py\", line 118, in __call__\n    result = self.orig_method(*args, **kwargs)\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/testing.py\", line 516, in post_coroutine\n    timeout=timeout)\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/ioloop.py\", line 501, in run_sync\n    return future_cell[0].result()\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/concurrent.py\", line 238, in result\n    raise_exc_info(self._exc_info)\n  File \"<string>\", line 4, in raise_exc_info\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/gen.py\", line 1057, in run\n    yielded = self.gen.throw(*exc_info)\n  File \"/opt/conda/envs/ce4643cfe50c63d63380c1ef67ea5299/lib/python3.7/types.py\", line 210, in throw\n    return self.__wrapped.throw(tp, *rest)\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/test/ioloop_test.py\", line 646, in test_run_in_executor_native\n    namespace[\"async_wrapper\"](event2, event1)\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/gen.py\", line 1049, in run\n    value = future.result()\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/concurrent.py\", line 238, in result\n    raise_exc_info(self._exc_info)\n  File \"<string>\", line 4, in raise_exc_info\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/gen.py\", line 823, in callback\n    result_list.append(f.result())\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/concurrent.py\", line 238, in result\n    raise_exc_info(self._exc_info)\n  File \"<string>\", line 4, in raise_exc_info\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/gen.py\", line 303, in wrapper\n    yielded = next(result)\n  File \"<string>\", line 6, in _wrap_awaitable\n  File \"<string>\", line 4, in async_wrapper\n```\n\nStart by calling the `get_covered_packages` function."
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_covered_packages",
+                "arguments": "{}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_covered_packages",
+            "content": "[\"tornado.httpserver\", \"tornado.gen\", \"tornado.template\", \"tornado.httputil\", \"tornado.locale\", \"tornado.locks\", \"tornado\", \"tornado.websocket\", \"tornado.routing\", \"tornado.ioloop\", \"tornado.httpclient\", \"tornado.netutil\", \"tornado.wsgi\", \"tornado.process\", \"tornado.concurrent\", \"tornado.log\", \"tornado.queues\", \"tornado.options\", \"tornado.testing\", \"tornado.tcpclient\", \"tornado.web\", \"tornado.util\", \"tornado.stack_context\", \"tornado.iostream\", \"tornado.tcpserver\", \"tornado.http1connection\", \"tornado.simple_httpclient\", \"tornado.auth\"]"
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_code_snippet",
+                "arguments": "{\"signature\": \"tornado.gen.run_in_executor\"}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_code_snippet",
+            "content": "\"You probably mean tornado.ioloop.IOLoop.run_in_executor(self, executor, func, *args). It looks like:\\n```python\\n642 :     def run_in_executor(self, executor, func, *args):\\n643 :         \\\"\\\"\\\"Runs a function in a ``concurrent.futures.Executor``. If\\n644 :         ``executor`` is ``None``, the IO loop's default executor will be used.\\n645 : \\n646 :         Use `functools.partial` to pass keyword arguments to `func`.\\n647 : \\n648 :         \\\"\\\"\\\"\\n649 :         if ThreadPoolExecutor is None:\\n650 :             raise RuntimeError(\\n651 :                 \\\"concurrent.futures is required to use IOLoop.run_in_executor\\\")\\n652 : \\n653 :         if executor is None:\\n654 :             if not hasattr(self, '_executor'):\\n655 :                 from tornado.process import cpu_count\\n656 :                 self._executor = ThreadPoolExecutor(max_workers=(cpu_count() * 5))\\n657 :             executor = self._executor\\n658 : \\n659 :         return executor.submit(func, *args)\\n```\""
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_failing_tests_covered_classes",
+                "arguments": "{}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_failing_tests_covered_classes",
+            "content": "\"get_failing_tests_covered_classes() missing 1 required positional argument: 'package_name'\""
+        },
+        {
+            "role": "assistant",
+            "content": "The test `test_run_in_executor_native` checks whether the `run_in_executor` method of the `IOLoop` class works correctly with asynchronous functions and futures. However, the test failure indicates that there is an issue with how the result of `run_in_executor` is being used in the `async_wrapper` function.\n\nFollowing the execution path, we find that the error occurs when trying to use a future object (`self_event`) in the `await` expression inside the `async_wrapper` function. This suggests that the `run_in_executor` method is not returning a value correctly, or it's returning something that cannot be used with the `await` keyword.\n\nLooking at the code snippet for `tornado.gen.run_in_executor`, we see that it returns an executor's future. However, in the `async_wrapper` function, this future is being treated as if it were the result of a coroutine, which is not correct.\n\nConsequently, when trying to use `await` on the returned future (specifically `self_event`), a TypeError is raised because an object Future can't be used in 'await' expression."
+        },
+        {
+            "role": "user",
+            "content": "Based on the available information, provide the signatures of the most likely culprit methods for the bug. Your answer will be processed automatically, so make sure to only answer with the accurate signatures of all likely culprits (in `ClassName.MethodName(ArgType1, ArgType2, ...)` format), without commentary (one per line). "
+        },
+        {
+            "role": "assistant",
+            "content": "tornado.gen.run_in_executor(IOLoop, None, func, *args) \ntornado.ioloop.IOLoop._executor.get_future()"
+        }
+    ],
+    "interaction_records": {
+        "step_histories": [
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4",
+                    "m5",
+                    "m6"
+                ],
+                "response_message": "m7"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4",
+                    "m5",
+                    "m6"
+                ],
+                "response_message": "m8"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4",
+                    "m5",
+                    "m6",
+                    "m8",
+                    "m9"
+                ],
+                "response_message": "m10"
+            }
+        ],
+        "mid_to_message": {
+            "m1": {
+                "role": "system",
+                "content": "You are a debugging assistant. You will be presented with a failing test, and tools (functions) to access the source code of the system under test (SUT). Your task is to provide a step-by-step explanation of how the bug occurred, based on the failing test and the information you retrieved using tools about the SUT. You will be given 9 chances to interact with functions to gather relevant information. An example answer would look like follows.\n\n```\nThe test `testGenerateURLFragment` checks whether HTML entities such as `&quot;` are correctly escaped to their corresponding character by the `StandardToolTipTagFragmentGenerator.generateToolTipFragment` method. However, the test failure indicates that this is not the case. Following the execution path, we find that `StandardToolTipTagFragmentGenerator.generateToolTipFragment` is not escaping any HTML code; instead, it is using its input `toolTipText` as is. Consequently, un-escaped strings are being returned, which leads to the error demonstrated by the test.\n```\n\nYou have the following functions available to debug the case:\n\n1. get_failing_tests_covered_classes(package_name) - This function retrieves a set of classes covered by failing tests and groups them by their package names. Call example: get_failing_tests_covered_classes(\"my.package\")\n2. get_failing_tests_covered_methods_for_class(class_name) - This function takes a class_name as input and returns a list of method names covered by failing tests for the specified class in the program under test. Call example: get_failing_tests_covered_methods_for_class(\"my.favorite.Class\")\n3. get_code_snippet(method_signature) - This function takes a signature as input and returns the corresponding code snippet for the method or field. Call example: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n\nTo make a function call, respond like the following:\n\n```\nFunction call: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n```\n\nIf you are done and ready to generate a response, respond like the following:\n\n```\nConclusion: The test `testGenerateURLFragment` checks...\n```\n\nYou will keep these instructions in mind while proceeding.\n\nAfter providing this diagnosis, you will be prompted to suggest which methods would be the best locations to be fixed. The answers should be in the form of `ClassName.MethodName(ArgType1, ArgType2, ...)` without commentary (one per line), as your answer will be automatically processed before finally being presented to the user."
+            },
+            "m2": {
+                "role": "user",
+                "content": "The test `['tornado.test.ioloop_test.TestIOLoopFutures.test_run_in_executor_native(self)']` failed.\nThe test looks like:\n\n```python\n626 :     def test_run_in_executor_native(self):\n627 :         event1 = threading.Event()\n628 :         event2 = threading.Event()\n629 : \n630 :         def sync_func(self_event, other_event):\n631 :             self_event.set()\n632 :             other_event.wait()\n633 :             return self_event\n634 : \n635 :         # Go through an async wrapper to ensure that the result of\n636 :         # run_in_executor works with await and not just gen.coroutine\n637 :         # (simply passing the underlying concurrrent future would do that).\n638 :         namespace = exec_test(globals(), locals(), \"\"\"\n639 :             async def async_wrapper(self_event, other_event):\n640 :                 return await IOLoop.current().run_in_executor(\n641 :                     None, sync_func, self_event, other_event)\n642 :         \"\"\")\n643 : \n644 :         res = yield [\n645 :             namespace[\"async_wrapper\"](event1, event2),\n646 :             namespace[\"async_wrapper\"](event2, event1) # error occurred here\n647 :             ]\n```\n\nIt failed with the following error message and call stack:\n\n```\nTypeError: object Future can't be used in 'await' expression\nTraceback (most recent call last):\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/testing.py\", line 118, in __call__\n    result = self.orig_method(*args, **kwargs)\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/testing.py\", line 516, in post_coroutine\n    timeout=timeout)\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/ioloop.py\", line 501, in run_sync\n    return future_cell[0].result()\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/concurrent.py\", line 238, in result\n    raise_exc_info(self._exc_info)\n  File \"<string>\", line 4, in raise_exc_info\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/gen.py\", line 1057, in run\n    yielded = self.gen.throw(*exc_info)\n  File \"/opt/conda/envs/ce4643cfe50c63d63380c1ef67ea5299/lib/python3.7/types.py\", line 210, in throw\n    return self.__wrapped.throw(tp, *rest)\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/test/ioloop_test.py\", line 646, in test_run_in_executor_native\n    namespace[\"async_wrapper\"](event2, event1)\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/gen.py\", line 1049, in run\n    value = future.result()\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/concurrent.py\", line 238, in result\n    raise_exc_info(self._exc_info)\n  File \"<string>\", line 4, in raise_exc_info\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/gen.py\", line 823, in callback\n    result_list.append(f.result())\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/concurrent.py\", line 238, in result\n    raise_exc_info(self._exc_info)\n  File \"<string>\", line 4, in raise_exc_info\n  File \"/home/user/BugsInPy/temp/projects/tornado/tornado/gen.py\", line 303, in wrapper\n    yielded = next(result)\n  File \"<string>\", line 6, in _wrap_awaitable\n  File \"<string>\", line 4, in async_wrapper\n```\n\nStart by calling the `get_covered_packages` function."
+            },
+            "m3": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_covered_packages",
+                    "arguments": "{}"
+                }
+            },
+            "m4": {
+                "role": "function",
+                "name": "get_covered_packages",
+                "content": "[\"tornado.httpserver\", \"tornado.gen\", \"tornado.template\", \"tornado.httputil\", \"tornado.locale\", \"tornado.locks\", \"tornado\", \"tornado.websocket\", \"tornado.routing\", \"tornado.ioloop\", \"tornado.httpclient\", \"tornado.netutil\", \"tornado.wsgi\", \"tornado.process\", \"tornado.concurrent\", \"tornado.log\", \"tornado.queues\", \"tornado.options\", \"tornado.testing\", \"tornado.tcpclient\", \"tornado.web\", \"tornado.util\", \"tornado.stack_context\", \"tornado.iostream\", \"tornado.tcpserver\", \"tornado.http1connection\", \"tornado.simple_httpclient\", \"tornado.auth\"]"
+            },
+            "m5": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_code_snippet",
+                    "arguments": "{\"signature\": \"tornado.gen.run_in_executor\"}"
+                }
+            },
+            "m6": {
+                "role": "function",
+                "name": "get_code_snippet",
+                "content": "\"You probably mean tornado.ioloop.IOLoop.run_in_executor(self, executor, func, *args). It looks like:\\n```python\\n642 :     def run_in_executor(self, executor, func, *args):\\n643 :         \\\"\\\"\\\"Runs a function in a ``concurrent.futures.Executor``. If\\n644 :         ``executor`` is ``None``, the IO loop's default executor will be used.\\n645 : \\n646 :         Use `functools.partial` to pass keyword arguments to `func`.\\n647 : \\n648 :         \\\"\\\"\\\"\\n649 :         if ThreadPoolExecutor is None:\\n650 :             raise RuntimeError(\\n651 :                 \\\"concurrent.futures is required to use IOLoop.run_in_executor\\\")\\n652 : \\n653 :         if executor is None:\\n654 :             if not hasattr(self, '_executor'):\\n655 :                 from tornado.process import cpu_count\\n656 :                 self._executor = ThreadPoolExecutor(max_workers=(cpu_count() * 5))\\n657 :             executor = self._executor\\n658 : \\n659 :         return executor.submit(func, *args)\\n```\""
+            },
+            "m7": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_covered_classes_for_failing_test",
+                    "arguments": "{\"signature\": \"tornado.testing.TestIOLoopFutures\"}"
+                }
+            },
+            "m8": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_failing_tests_covered_classes",
+                    "arguments": "{}"
+                }
+            },
+            "m9": {
+                "role": "function",
+                "name": "get_failing_tests_covered_classes",
+                "content": "\"get_failing_tests_covered_classes() missing 1 required positional argument: 'package_name'\""
+            },
+            "m10": {
+                "role": "assistant",
+                "content": "The test `test_run_in_executor_native` checks whether the `run_in_executor` method of the `IOLoop` class works correctly with asynchronous functions and futures. However, the test failure indicates that there is an issue with how the result of `run_in_executor` is being used in the `async_wrapper` function.\n\nFollowing the execution path, we find that the error occurs when trying to use a future object (`self_event`) in the `await` expression inside the `async_wrapper` function. This suggests that the `run_in_executor` method is not returning a value correctly, or it's returning something that cannot be used with the `await` keyword.\n\nLooking at the code snippet for `tornado.gen.run_in_executor`, we see that it returns an executor's future. However, in the `async_wrapper` function, this future is being treated as if it were the result of a coroutine, which is not correct.\n\nConsequently, when trying to use `await` on the returned future (specifically `self_event`), a TypeError is raised because an object Future can't be used in 'await' expression."
+            }
+        }
+    },
+    "buggy_methods": {
+        "tornado.ioloop.IOLoop.run_in_executor(self, executor, func, *args)": {
+            "is_found": true,
+            "matching_answer": [
+                "tornado.gen.run_in_executor(IOLoop, None, func, *args) "
+            ]
+        }
+    },
+    "query_costs": [
+        {
+            "total_duration": 1502422283,
+            "load_duration": 36645646,
+            "prompt_eval_count": 1523,
+            "prompt_eval_duration": 181527344,
+            "eval_count": 109,
+            "eval_duration": 1283236318
+        },
+        {
+            "total_duration": 2023419258,
+            "load_duration": 36480124,
+            "prompt_eval_count": 1791,
+            "prompt_eval_duration": 36519298,
+            "eval_count": 170,
+            "eval_duration": 1949509284
+        },
+        {
+            "total_duration": 3132250789,
+            "load_duration": 39175743,
+            "prompt_eval_count": 1791,
+            "prompt_eval_duration": 18785460,
+            "eval_count": 277,
+            "eval_duration": 3072461259
+        },
+        {
+            "total_duration": 2597540095,
+            "load_duration": 36989548,
+            "prompt_eval_count": 1828,
+            "prompt_eval_duration": 16509267,
+            "eval_count": 230,
+            "eval_duration": 2542967976
+        },
+        {
+            "total_duration": 501584778,
+            "load_duration": 35799423,
+            "prompt_eval_count": 2131,
+            "prompt_eval_duration": 40303570,
+            "eval_count": 32,
+            "eval_duration": 424171148
+        }
+    ],
+    "total_energy": [
+        0.0,
+        2897.3216000000016
+    ],
+    "power_draw": [
+        [
+            22.459,
+            183.197
+        ],
+        [
+            22.459,
+            183.197
+        ],
+        [
+            22.459,
+            183.197
+        ],
+        [
+            22.459,
+            183.197
+        ],
+        [
+            22.459,
+            183.197
+        ],
+        [
+            22.221,
+            245.829
+        ],
+        [
+            22.221,
+            245.829
+        ],
+        [
+            22.221,
+            245.829
+        ],
+        [
+            22.221,
+            245.829
+        ],
+        [
+            22.221,
+            245.829
+        ],
+        [
+            22.221,
+            326.892
+        ],
+        [
+            22.221,
+            326.892
+        ],
+        [
+            22.221,
+            326.892
+        ],
+        [
+            22.221,
+            326.892
+        ],
+        [
+            22.221,
+            326.892
+        ],
+        [
+            22.389,
+            332.003
+        ],
+        [
+            22.389,
+            332.003
+        ],
+        [
+            22.389,
+            332.003
+        ],
+        [
+            22.389,
+            332.003
+        ],
+        [
+            22.389,
+            332.003
+        ],
+        [
+            22.389,
+            314.725
+        ],
+        [
+            22.389,
+            314.725
+        ],
+        [
+            22.389,
+            314.725
+        ],
+        [
+            22.389,
+            314.725
+        ],
+        [
+            22.389,
+            314.725
+        ],
+        [
+            22.376,
+            315.425
+        ],
+        [
+            22.376,
+            315.425
+        ],
+        [
+            22.376,
+            315.425
+        ],
+        [
+            22.376,
+            315.425
+        ],
+        [
+            22.376,
+            315.425
+        ],
+        [
+            22.376,
+            340.902
+        ],
+        [
+            22.376,
+            340.902
+        ],
+        [
+            22.376,
+            340.902
+        ],
+        [
+            22.376,
+            340.902
+        ],
+        [
+            22.376,
+            340.902
+        ],
+        [
+            22.316,
+            339.427
+        ],
+        [
+            22.316,
+            339.427
+        ],
+        [
+            22.316,
+            339.427
+        ],
+        [
+            22.316,
+            339.427
+        ],
+        [
+            22.316,
+            339.427
+        ],
+        [
+            22.316,
+            313.97
+        ],
+        [
+            22.316,
+            313.97
+        ],
+        [
+            22.316,
+            313.97
+        ],
+        [
+            22.316,
+            313.97
+        ],
+        [
+            22.316,
+            313.97
+        ],
+        [
+            22.472,
+            314.785
+        ],
+        [
+            22.472,
+            314.785
+        ],
+        [
+            22.472,
+            314.785
+        ],
+        [
+            22.472,
+            314.785
+        ],
+        [
+            22.472,
+            314.785
+        ],
+        [
+            22.472,
+            342.389
+        ],
+        [
+            22.472,
+            342.389
+        ],
+        [
+            22.472,
+            342.389
+        ],
+        [
+            22.472,
+            342.389
+        ],
+        [
+            22.472,
+            342.389
+        ],
+        [
+            22.465,
+            341.75
+        ],
+        [
+            22.465,
+            341.75
+        ],
+        [
+            22.465,
+            341.75
+        ],
+        [
+            22.465,
+            341.75
+        ],
+        [
+            22.465,
+            341.75
+        ],
+        [
+            22.465,
+            342.365
+        ],
+        [
+            22.465,
+            342.365
+        ],
+        [
+            22.465,
+            342.365
+        ],
+        [
+            22.465,
+            342.365
+        ],
+        [
+            22.465,
+            342.365
+        ],
+        [
+            22.431,
+            341.417
+        ],
+        [
+            22.431,
+            341.417
+        ],
+        [
+            22.431,
+            341.417
+        ],
+        [
+            22.431,
+            341.417
+        ],
+        [
+            22.431,
+            341.417
+        ],
+        [
+            22.431,
+            314.605
+        ],
+        [
+            22.431,
+            314.605
+        ],
+        [
+            22.431,
+            314.605
+        ],
+        [
+            22.431,
+            314.605
+        ],
+        [
+            22.431,
+            314.605
+        ],
+        [
+            22.364,
+            316.507
+        ],
+        [
+            22.364,
+            316.507
+        ],
+        [
+            22.364,
+            316.507
+        ],
+        [
+            22.364,
+            316.507
+        ],
+        [
+            22.364,
+            316.507
+        ],
+        [
+            22.364,
+            326.74
+        ],
+        [
+            22.364,
+            326.74
+        ],
+        [
+            22.364,
+            326.74
+        ],
+        [
+            22.364,
+            326.74
+        ],
+        [
+            22.364,
+            326.74
+        ],
+        [
+            22.434,
+            340.847
+        ],
+        [
+            22.434,
+            340.847
+        ],
+        [
+            22.434,
+            340.847
+        ],
+        [
+            22.434,
+            340.847
+        ],
+        [
+            22.434,
+            340.847
+        ],
+        [
+            22.434,
+            340.763
+        ],
+        [
+            22.434,
+            340.763
+        ],
+        [
+            22.434,
+            340.763
+        ],
+        [
+            22.434,
+            340.763
+        ],
+        [
+            22.434,
+            340.763
+        ],
+        [
+            22.273,
+            340.608
+        ],
+        [
+            22.273,
+            340.608
+        ],
+        [
+            22.273,
+            340.608
+        ],
+        [
+            22.273,
+            340.608
+        ],
+        [
+            22.273,
+            340.608
+        ],
+        [
+            22.273,
+            314.548
+        ]
+    ],
+    "gpu_activity": [
+        [
+            0,
+            3
+        ],
+        [
+            0,
+            3
+        ],
+        [
+            0,
+            3
+        ],
+        [
+            0,
+            3
+        ],
+        [
+            0,
+            3
+        ],
+        [
+            0,
+            3
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            76
+        ],
+        [
+            0,
+            65
+        ],
+        [
+            0,
+            65
+        ],
+        [
+            0,
+            65
+        ],
+        [
+            0,
+            65
+        ],
+        [
+            0,
+            65
+        ],
+        [
+            0,
+            65
+        ],
+        [
+            0,
+            65
+        ],
+        [
+            0,
+            65
+        ],
+        [
+            0,
+            65
+        ],
+        [
+            0,
+            65
+        ],
+        [
+            0,
+            71
+        ],
+        [
+            0,
+            71
+        ],
+        [
+            0,
+            71
+        ],
+        [
+            0,
+            71
+        ],
+        [
+            0,
+            71
+        ],
+        [
+            0,
+            71
+        ],
+        [
+            0,
+            71
+        ],
+        [
+            0,
+            71
+        ],
+        [
+            0,
+            71
+        ],
+        [
+            0,
+            71
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            77
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            75
+        ],
+        [
+            0,
+            36
+        ],
+        [
+            0,
+            36
+        ],
+        [
+            0,
+            36
+        ],
+        [
+            0,
+            36
+        ],
+        [
+            0,
+            36
+        ]
+    ]
+}

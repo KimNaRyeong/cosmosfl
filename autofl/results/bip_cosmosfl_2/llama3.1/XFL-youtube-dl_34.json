@@ -1,0 +1,962 @@
+{
+    "time_taken": 9.924586296081543,
+    "messages": [
+        {
+            "role": "system",
+            "content": "You are a debugging assistant. You will be presented with a failing test, and tools (functions) to access the source code of the system under test (SUT). Your task is to provide a step-by-step explanation of how the bug occurred, based on the failing test and the information you retrieved using tools about the SUT. You will be given 9 chances to interact with functions to gather relevant information. An example answer would look like follows.\n\n```\nThe test `testGenerateURLFragment` checks whether HTML entities such as `&quot;` are correctly escaped to their corresponding character by the `StandardToolTipTagFragmentGenerator.generateToolTipFragment` method. However, the test failure indicates that this is not the case. Following the execution path, we find that `StandardToolTipTagFragmentGenerator.generateToolTipFragment` is not escaping any HTML code; instead, it is using its input `toolTipText` as is. Consequently, un-escaped strings are being returned, which leads to the error demonstrated by the test.\n```\n\nYou have the following functions available to debug the case:\n\n1. get_failing_tests_covered_classes(package_name) - This function retrieves a set of classes covered by failing tests and groups them by their package names. Call example: get_failing_tests_covered_classes(\"my.package\")\n2. get_failing_tests_covered_methods_for_class(class_name) - This function takes a class_name as input and returns a list of method names covered by failing tests for the specified class in the program under test. Call example: get_failing_tests_covered_methods_for_class(\"my.favorite.Class\")\n3. get_code_snippet(method_signature) - This function takes a signature as input and returns the corresponding code snippet for the method or field. Call example: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n\nTo make a function call, respond like the following:\n\n```\nFunction call: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n```\n\nIf you are done and ready to generate a response, respond like the following:\n\n```\nConclusion: The test `testGenerateURLFragment` checks...\n```\n\nYou will keep these instructions in mind while proceeding.\n\nAfter providing this diagnosis, you will be prompted to suggest which methods would be the best locations to be fixed. The answers should be in the form of `ClassName.MethodName(ArgType1, ArgType2, ...)` without commentary (one per line), as your answer will be automatically processed before finally being presented to the user."
+        },
+        {
+            "role": "user",
+            "content": "The test `['test.test_utils.TestUtil.test_js_to_json(self)']` failed.\nThe test looks like:\n\n```python\n335 :     def test_js_to_json(self):\n336 :         inp = '''{\n337 :                 'clip':{'provider':'pseudo'}\n338 :         }'''\n339 :         self.assertEqual(js_to_json(inp), '''{\n340 :                 \"clip\":{\"provider\":\"pseudo\"}\n341 :         }''') # error occurred here\n```\n\nIt failed with the following error message and call stack:\n\n```\nAssertionError: '{\\n                \"clip\":{\\'provider\\':\\'pseudo\\'}\\n        }' != '{\\n                \"clip\":{\"provider\":\"pseudo\"}\\n        }'\nTraceback (most recent call last):\n  File \"/home/user/BugsInPy/temp/projects/youtube-dl/test/test_utils.py\", line 341, in test_js_to_json\n    }''')\n```\n\nStart by calling the `get_covered_packages` function."
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_covered_packages",
+                "arguments": "{}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_covered_packages",
+            "content": "[\"youtube_dl.extractor.ceskatelevize\", \"youtube_dl.extractor.allocine\", \"youtube_dl.extractor.br\", \"youtube_dl.extractor.fivemin\", \"youtube_dl.extractor.soundcloud\", \"youtube_dl.extractor\", \"youtube_dl.extractor.common\", \"youtube_dl.extractor.udemy\", \"youtube_dl.YoutubeDL\", \"youtube_dl.extractor.mtv\", \"youtube_dl.extractor.auengine\", \"youtube_dl.extractor.pornotube\", \"youtube_dl.extractor.sina\", \"youtube_dl.extractor.youporn\", \"youtube_dl.extractor.academicearth\", \"youtube_dl.extractor.lynda\", \"youtube_dl.extractor.abc\", \"youtube_dl.extractor.ted\", \"youtube_dl\", \"youtube_dl.extractor.dailymotion\", \"youtube_dl.extractor.livestream\", \"youtube_dl.extractor.vimeo\", \"youtube_dl.cache\", \"youtube_dl.extractor.youtube\", \"youtube_dl.extractor.bbccouk\", \"youtube_dl.extractor.bliptv\", \"youtube_dl.downloader\", \"youtube_dl.extractor.aol\", \"youtube_dl.jsinterp\", \"youtube_dl.utils\", \"youtube_dl.extractor.smotri\", \"youtube_dl.extractor.generic\", \"youtube_dl.extractor.arte\", \"youtube_dl.extractor.subtitles\", \"youtube_dl.extractor.channel9\", \"youtube_dl.downloader.common\", \"youtube_dl.extractor.francetv\", \"youtube_dl.extractor.brightcove\", \"youtube_dl.downloader.http\", \"youtube_dl.extractor.ard\"]"
+        },
+        {
+            "role": "assistant",
+            "content": null,
+            "function_call": {
+                "name": "get_code_snippet",
+                "arguments": "{\"signature\": \"js_to_json\"}"
+            }
+        },
+        {
+            "role": "function",
+            "name": "get_code_snippet",
+            "content": "\"You probably mean youtube_dl.utils.js_to_json(code). It looks like:\\n```python\\n1579 : def js_to_json(code):\\n1580 :     def fix_kv(m):\\n1581 :         key = m.group(2)\\n1582 :         if key.startswith(\\\"'\\\"):\\n1583 :             assert key.endswith(\\\"'\\\")\\n1584 :             assert '\\\"' not in key\\n1585 :             key = '\\\"%s\\\"' % key[1:-1]\\n1586 :         elif not key.startswith('\\\"'):\\n1587 :             key = '\\\"%s\\\"' % key\\n1588 : \\n1589 :         value = m.group(4)\\n1590 :         if value.startswith(\\\"'\\\"):\\n1591 :             assert value.endswith(\\\"'\\\")\\n1592 :             assert '\\\"' not in value\\n1593 :             value = '\\\"%s\\\"' % value[1:-1]\\n1594 : \\n1595 :         return m.group(1) + key + m.group(3) + value\\n1596 : \\n1597 :     res = re.sub(r'''(?x)\\n1598 :             ([{,]\\\\s*)\\n1599 :             (\\\"[^\\\"]*\\\"|\\\\'[^\\\\']*\\\\'|[a-z0-9A-Z]+)\\n1600 :             (:\\\\s*)\\n1601 :             ([0-9.]+|true|false|\\\"[^\\\"]*\\\"|\\\\'[^\\\\']*\\\\'|\\\\[|\\\\{)\\n1602 :         ''', fix_kv, code)\\n1603 :     res = re.sub(r',(\\\\s*\\\\])', lambda m: m.group(1), res)\\n1604 :     return res\\n```\""
+        },
+        {
+            "role": "assistant",
+            "content": "The test `test_js_to_json` checks whether the `js_to_json` method correctly converts JavaScript object notation to JSON format. However, the test failure indicates that this is not the case. Following the execution path, we find that the regular expression substitution in the `js_to_json` method is not correctly escaping single quotes within key and value strings.\n\nThe issue arises from the fact that the regular expression fix_kv() function only checks for double-quoted keys and values, but it does not handle single-quoted ones. Consequently, when a JavaScript object contains single-quoted strings as keys or values, they are not properly escaped in the resulting JSON format, leading to the error demonstrated by the test.\n\nThe issue lies in lines 1582 and 1591 of the `js_to_json` method where it checks if the key or value starts with double quotes. If it does, it replaces the key or value with double-quoted string; otherwise, it leaves them as they are. However, this is not sufficient to handle single-quoted strings.\n\nTo fix the issue, we need to modify the regular expression substitution in the `js_to_json` method to correctly escape both single- and double-quoted strings. This can be done by changing the regular expressions in lines 1598 and 1600 of the `fix_kv()` function to match both single- and double-quoted strings.\n\nThe corrected code should look like this:\n```python\ndef fix_kv(m):\n    key = m.group(2)\n    if key.startswith(\"'\") or key.startswith('\"'):\n        assert key.endswith(\"'\") or key.endswith('\"')\n        assert \"'\" not in key or '\"' not in key\n        key = '\"%s\"' % key[1:-1]\n    elif not key.startswith('\\\"') and not key.startswith(\"'\"):\n        key = '\"%s\"' % key\n\n    value = m.group(4)\n    if value.startswith(\"'\") or value.startswith('\"'):\n        assert value.endswith(\"'\") or value.endswith('\"')\n        assert \"'\" not in value or '\"' not in value\n        value = '\"%s\"' % value[1:-1]\n\n    return m.group(1) + key + m.group(3) + value\n\nres = re.sub(r'''(?x)\n                ([{,]\\s*)\n                (\\\\\"[^\\\\\"]*\\\\\\\"|'[^\\\\']*'|[a-z0-9A-Z]+)\n                (:\\s*)\n                ([0-9.]+|true|false|\\\"[^\\\"]*\\\"|'[^\\\\']*'|\\\\[|\\\\{)\n        ''', fix_kv, code)\n```\n\nNow that we have identified the issue and its location, let's proceed to the next step.\n\n```python\nConclusion: The test `test_js_to_json` checks...\n```\nPlease wait for further instructions. \n\n(Your turn to decide what's next)"
+        },
+        {
+            "role": "user",
+            "content": "Based on the available information, provide the signatures of the most likely culprit methods for the bug. Your answer will be processed automatically, so make sure to only answer with the accurate signatures of all likely culprits (in `ClassName.MethodName(ArgType1, ArgType2, ...)` format), without commentary (one per line). "
+        },
+        {
+            "role": "assistant",
+            "content": "youtube_dl.utils.js_to_json(code)"
+        }
+    ],
+    "interaction_records": {
+        "step_histories": [
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m5"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4"
+                ],
+                "response_message": "m6"
+            },
+            {
+                "prompt_messages": [
+                    "m1",
+                    "m2",
+                    "m3",
+                    "m4",
+                    "m6",
+                    "m7"
+                ],
+                "response_message": "m8"
+            }
+        ],
+        "mid_to_message": {
+            "m1": {
+                "role": "system",
+                "content": "You are a debugging assistant. You will be presented with a failing test, and tools (functions) to access the source code of the system under test (SUT). Your task is to provide a step-by-step explanation of how the bug occurred, based on the failing test and the information you retrieved using tools about the SUT. You will be given 9 chances to interact with functions to gather relevant information. An example answer would look like follows.\n\n```\nThe test `testGenerateURLFragment` checks whether HTML entities such as `&quot;` are correctly escaped to their corresponding character by the `StandardToolTipTagFragmentGenerator.generateToolTipFragment` method. However, the test failure indicates that this is not the case. Following the execution path, we find that `StandardToolTipTagFragmentGenerator.generateToolTipFragment` is not escaping any HTML code; instead, it is using its input `toolTipText` as is. Consequently, un-escaped strings are being returned, which leads to the error demonstrated by the test.\n```\n\nYou have the following functions available to debug the case:\n\n1. get_failing_tests_covered_classes(package_name) - This function retrieves a set of classes covered by failing tests and groups them by their package names. Call example: get_failing_tests_covered_classes(\"my.package\")\n2. get_failing_tests_covered_methods_for_class(class_name) - This function takes a class_name as input and returns a list of method names covered by failing tests for the specified class in the program under test. Call example: get_failing_tests_covered_methods_for_class(\"my.favorite.Class\")\n3. get_code_snippet(method_signature) - This function takes a signature as input and returns the corresponding code snippet for the method or field. Call example: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n\nTo make a function call, respond like the following:\n\n```\nFunction call: get_code_snippet(\"my.favorite.Class.Method(Args)\")\n```\n\nIf you are done and ready to generate a response, respond like the following:\n\n```\nConclusion: The test `testGenerateURLFragment` checks...\n```\n\nYou will keep these instructions in mind while proceeding.\n\nAfter providing this diagnosis, you will be prompted to suggest which methods would be the best locations to be fixed. The answers should be in the form of `ClassName.MethodName(ArgType1, ArgType2, ...)` without commentary (one per line), as your answer will be automatically processed before finally being presented to the user."
+            },
+            "m2": {
+                "role": "user",
+                "content": "The test `['test.test_utils.TestUtil.test_js_to_json(self)']` failed.\nThe test looks like:\n\n```python\n335 :     def test_js_to_json(self):\n336 :         inp = '''{\n337 :                 'clip':{'provider':'pseudo'}\n338 :         }'''\n339 :         self.assertEqual(js_to_json(inp), '''{\n340 :                 \"clip\":{\"provider\":\"pseudo\"}\n341 :         }''') # error occurred here\n```\n\nIt failed with the following error message and call stack:\n\n```\nAssertionError: '{\\n                \"clip\":{\\'provider\\':\\'pseudo\\'}\\n        }' != '{\\n                \"clip\":{\"provider\":\"pseudo\"}\\n        }'\nTraceback (most recent call last):\n  File \"/home/user/BugsInPy/temp/projects/youtube-dl/test/test_utils.py\", line 341, in test_js_to_json\n    }''')\n```\n\nStart by calling the `get_covered_packages` function."
+            },
+            "m3": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_covered_packages",
+                    "arguments": "{}"
+                }
+            },
+            "m4": {
+                "role": "function",
+                "name": "get_covered_packages",
+                "content": "[\"youtube_dl.extractor.ceskatelevize\", \"youtube_dl.extractor.allocine\", \"youtube_dl.extractor.br\", \"youtube_dl.extractor.fivemin\", \"youtube_dl.extractor.soundcloud\", \"youtube_dl.extractor\", \"youtube_dl.extractor.common\", \"youtube_dl.extractor.udemy\", \"youtube_dl.YoutubeDL\", \"youtube_dl.extractor.mtv\", \"youtube_dl.extractor.auengine\", \"youtube_dl.extractor.pornotube\", \"youtube_dl.extractor.sina\", \"youtube_dl.extractor.youporn\", \"youtube_dl.extractor.academicearth\", \"youtube_dl.extractor.lynda\", \"youtube_dl.extractor.abc\", \"youtube_dl.extractor.ted\", \"youtube_dl\", \"youtube_dl.extractor.dailymotion\", \"youtube_dl.extractor.livestream\", \"youtube_dl.extractor.vimeo\", \"youtube_dl.cache\", \"youtube_dl.extractor.youtube\", \"youtube_dl.extractor.bbccouk\", \"youtube_dl.extractor.bliptv\", \"youtube_dl.downloader\", \"youtube_dl.extractor.aol\", \"youtube_dl.jsinterp\", \"youtube_dl.utils\", \"youtube_dl.extractor.smotri\", \"youtube_dl.extractor.generic\", \"youtube_dl.extractor.arte\", \"youtube_dl.extractor.subtitles\", \"youtube_dl.extractor.channel9\", \"youtube_dl.downloader.common\", \"youtube_dl.extractor.francetv\", \"youtube_dl.extractor.brightcove\", \"youtube_dl.downloader.http\", \"youtube_dl.extractor.ard\"]"
+            },
+            "m5": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_failing_tests_covered_classes",
+                    "arguments": "{}"
+                }
+            },
+            "m6": {
+                "role": "assistant",
+                "content": null,
+                "function_call": {
+                    "name": "get_code_snippet",
+                    "arguments": "{\"signature\": \"js_to_json\"}"
+                }
+            },
+            "m7": {
+                "role": "function",
+                "name": "get_code_snippet",
+                "content": "\"You probably mean youtube_dl.utils.js_to_json(code). It looks like:\\n```python\\n1579 : def js_to_json(code):\\n1580 :     def fix_kv(m):\\n1581 :         key = m.group(2)\\n1582 :         if key.startswith(\\\"'\\\"):\\n1583 :             assert key.endswith(\\\"'\\\")\\n1584 :             assert '\\\"' not in key\\n1585 :             key = '\\\"%s\\\"' % key[1:-1]\\n1586 :         elif not key.startswith('\\\"'):\\n1587 :             key = '\\\"%s\\\"' % key\\n1588 : \\n1589 :         value = m.group(4)\\n1590 :         if value.startswith(\\\"'\\\"):\\n1591 :             assert value.endswith(\\\"'\\\")\\n1592 :             assert '\\\"' not in value\\n1593 :             value = '\\\"%s\\\"' % value[1:-1]\\n1594 : \\n1595 :         return m.group(1) + key + m.group(3) + value\\n1596 : \\n1597 :     res = re.sub(r'''(?x)\\n1598 :             ([{,]\\\\s*)\\n1599 :             (\\\"[^\\\"]*\\\"|\\\\'[^\\\\']*\\\\'|[a-z0-9A-Z]+)\\n1600 :             (:\\\\s*)\\n1601 :             ([0-9.]+|true|false|\\\"[^\\\"]*\\\"|\\\\'[^\\\\']*\\\\'|\\\\[|\\\\{)\\n1602 :         ''', fix_kv, code)\\n1603 :     res = re.sub(r',(\\\\s*\\\\])', lambda m: m.group(1), res)\\n1604 :     return res\\n```\""
+            },
+            "m8": {
+                "role": "assistant",
+                "content": "The test `test_js_to_json` checks whether the `js_to_json` method correctly converts JavaScript object notation to JSON format. However, the test failure indicates that this is not the case. Following the execution path, we find that the regular expression substitution in the `js_to_json` method is not correctly escaping single quotes within key and value strings.\n\nThe issue arises from the fact that the regular expression fix_kv() function only checks for double-quoted keys and values, but it does not handle single-quoted ones. Consequently, when a JavaScript object contains single-quoted strings as keys or values, they are not properly escaped in the resulting JSON format, leading to the error demonstrated by the test.\n\nThe issue lies in lines 1582 and 1591 of the `js_to_json` method where it checks if the key or value starts with double quotes. If it does, it replaces the key or value with double-quoted string; otherwise, it leaves them as they are. However, this is not sufficient to handle single-quoted strings.\n\nTo fix the issue, we need to modify the regular expression substitution in the `js_to_json` method to correctly escape both single- and double-quoted strings. This can be done by changing the regular expressions in lines 1598 and 1600 of the `fix_kv()` function to match both single- and double-quoted strings.\n\nThe corrected code should look like this:\n```python\ndef fix_kv(m):\n    key = m.group(2)\n    if key.startswith(\"'\") or key.startswith('\"'):\n        assert key.endswith(\"'\") or key.endswith('\"')\n        assert \"'\" not in key or '\"' not in key\n        key = '\"%s\"' % key[1:-1]\n    elif not key.startswith('\\\"') and not key.startswith(\"'\"):\n        key = '\"%s\"' % key\n\n    value = m.group(4)\n    if value.startswith(\"'\") or value.startswith('\"'):\n        assert value.endswith(\"'\") or value.endswith('\"')\n        assert \"'\" not in value or '\"' not in value\n        value = '\"%s\"' % value[1:-1]\n\n    return m.group(1) + key + m.group(3) + value\n\nres = re.sub(r'''(?x)\n                ([{,]\\s*)\n                (\\\\\"[^\\\\\"]*\\\\\\\"|'[^\\\\']*'|[a-z0-9A-Z]+)\n                (:\\s*)\n                ([0-9.]+|true|false|\\\"[^\\\"]*\\\"|'[^\\\\']*'|\\\\[|\\\\{)\n        ''', fix_kv, code)\n```\n\nNow that we have identified the issue and its location, let's proceed to the next step.\n\n```python\nConclusion: The test `test_js_to_json` checks...\n```\nPlease wait for further instructions. \n\n(Your turn to decide what's next)"
+            }
+        }
+    },
+    "buggy_methods": {
+        "youtube_dl.utils.ExtractorError.__init__(self, msg, tb=None, expected=False, cause=None, video_id=None)": {
+            "is_found": false,
+            "matching_answer": []
+        },
+        "youtube_dl.utils.js_to_json(code)": {
+            "is_found": true,
+            "matching_answer": [
+                "youtube_dl.utils.js_to_json(code)"
+            ]
+        }
+    },
+    "query_costs": [
+        {
+            "total_duration": 495373865,
+            "load_duration": 28017377,
+            "prompt_eval_count": 1064,
+            "prompt_eval_duration": 138549940,
+            "eval_count": 31,
+            "eval_duration": 328120789
+        },
+        {
+            "total_duration": 2075577969,
+            "load_duration": 35379187,
+            "prompt_eval_count": 1064,
+            "prompt_eval_duration": 9585013,
+            "eval_count": 193,
+            "eval_duration": 2029740357
+        },
+        {
+            "total_duration": 6517548570,
+            "load_duration": 35155515,
+            "prompt_eval_count": 1468,
+            "prompt_eval_duration": 41735762,
+            "eval_count": 590,
+            "eval_duration": 6439298730
+        },
+        {
+            "total_duration": 346110511,
+            "load_duration": 35766032,
+            "prompt_eval_count": 2131,
+            "prompt_eval_duration": 176072988,
+            "eval_count": 9,
+            "eval_duration": 133121907
+        }
+    ],
+    "total_energy": [
+        2770.1747000000005,
+        0.0
+    ],
+    "power_draw": [
+        [
+            260.123,
+            27.363
+        ],
+        [
+            260.123,
+            27.363
+        ],
+        [
+            260.123,
+            27.363
+        ],
+        [
+            260.123,
+            27.363
+        ],
+        [
+            260.123,
+            27.363
+        ],
+        [
+            251.88,
+            27.363
+        ],
+        [
+            251.88,
+            27.363
+        ],
+        [
+            251.88,
+            27.363
+        ],
+        [
+            251.88,
+            27.363
+        ],
+        [
+            251.88,
+            27.363
+        ],
+        [
+            301.433,
+            27.342
+        ],
+        [
+            301.433,
+            27.342
+        ],
+        [
+            301.433,
+            27.342
+        ],
+        [
+            301.433,
+            27.342
+        ],
+        [
+            301.433,
+            27.342
+        ],
+        [
+            324.057,
+            27.342
+        ],
+        [
+            324.057,
+            27.342
+        ],
+        [
+            324.057,
+            27.342
+        ],
+        [
+            324.057,
+            27.342
+        ],
+        [
+            324.057,
+            27.342
+        ],
+        [
+            347.924,
+            27.16
+        ],
+        [
+            347.924,
+            27.16
+        ],
+        [
+            347.924,
+            27.16
+        ],
+        [
+            347.924,
+            27.16
+        ],
+        [
+            347.924,
+            27.16
+        ],
+        [
+            346.704,
+            27.16
+        ],
+        [
+            346.704,
+            27.16
+        ],
+        [
+            346.704,
+            27.16
+        ],
+        [
+            346.704,
+            27.16
+        ],
+        [
+            346.704,
+            27.16
+        ],
+        [
+            320.93,
+            27.24
+        ],
+        [
+            320.93,
+            27.24
+        ],
+        [
+            320.93,
+            27.24
+        ],
+        [
+            320.93,
+            27.24
+        ],
+        [
+            320.93,
+            27.24
+        ],
+        [
+            320.462,
+            27.24
+        ],
+        [
+            320.462,
+            27.24
+        ],
+        [
+            320.462,
+            27.24
+        ],
+        [
+            320.462,
+            27.24
+        ],
+        [
+            320.462,
+            27.24
+        ],
+        [
+            345.408,
+            27.301
+        ],
+        [
+            345.408,
+            27.301
+        ],
+        [
+            345.408,
+            27.301
+        ],
+        [
+            345.408,
+            27.301
+        ],
+        [
+            345.408,
+            27.301
+        ],
+        [
+            346.964,
+            27.301
+        ],
+        [
+            346.964,
+            27.301
+        ],
+        [
+            346.964,
+            27.301
+        ],
+        [
+            346.964,
+            27.301
+        ],
+        [
+            346.964,
+            27.301
+        ],
+        [
+            347.359,
+            27.135
+        ],
+        [
+            347.359,
+            27.135
+        ],
+        [
+            347.359,
+            27.135
+        ],
+        [
+            347.359,
+            27.135
+        ],
+        [
+            347.359,
+            27.135
+        ],
+        [
+            347.736,
+            27.135
+        ],
+        [
+            347.736,
+            27.135
+        ],
+        [
+            347.736,
+            27.135
+        ],
+        [
+            347.736,
+            27.135
+        ],
+        [
+            347.736,
+            27.135
+        ],
+        [
+            347.601,
+            27.136
+        ],
+        [
+            347.601,
+            27.136
+        ],
+        [
+            347.601,
+            27.136
+        ],
+        [
+            347.601,
+            27.136
+        ],
+        [
+            347.601,
+            27.136
+        ],
+        [
+            347.55,
+            27.136
+        ],
+        [
+            347.55,
+            27.136
+        ],
+        [
+            347.55,
+            27.136
+        ],
+        [
+            347.55,
+            27.136
+        ],
+        [
+            347.55,
+            27.136
+        ],
+        [
+            346.612,
+            27.215
+        ],
+        [
+            346.612,
+            27.215
+        ],
+        [
+            346.612,
+            27.215
+        ],
+        [
+            346.612,
+            27.215
+        ],
+        [
+            346.612,
+            27.215
+        ],
+        [
+            346.694,
+            27.215
+        ],
+        [
+            346.694,
+            27.215
+        ],
+        [
+            346.694,
+            27.215
+        ],
+        [
+            346.694,
+            27.215
+        ],
+        [
+            346.694,
+            27.215
+        ],
+        [
+            347.03,
+            27.121
+        ],
+        [
+            347.03,
+            27.121
+        ],
+        [
+            347.03,
+            27.121
+        ],
+        [
+            347.03,
+            27.121
+        ],
+        [
+            347.03,
+            27.121
+        ],
+        [
+            346.748,
+            27.121
+        ],
+        [
+            346.748,
+            27.121
+        ],
+        [
+            346.748,
+            27.121
+        ],
+        [
+            346.748,
+            27.121
+        ],
+        [
+            346.748,
+            27.121
+        ],
+        [
+            347.343,
+            27.085
+        ],
+        [
+            347.343,
+            27.085
+        ],
+        [
+            347.343,
+            27.085
+        ],
+        [
+            347.343,
+            27.085
+        ],
+        [
+            347.343,
+            27.085
+        ],
+        [
+            320.097,
+            27.085
+        ],
+        [
+            320.097,
+            27.085
+        ]
+    ],
+    "gpu_activity": [
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            0,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            73,
+            0
+        ],
+        [
+            75,
+            0
+        ],
+        [
+            75,
+            0
+        ],
+        [
+            75,
+            0
+        ],
+        [
+            75,
+            0
+        ],
+        [
+            75,
+            0
+        ],
+        [
+            75,
+            0
+        ],
+        [
+            75,
+            0
+        ],
+        [
+            75,
+            0
+        ],
+        [
+            75,
+            0
+        ],
+        [
+            75,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            76,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            77,
+            0
+        ],
+        [
+            100,
+            0
+        ]
+    ]
+}
