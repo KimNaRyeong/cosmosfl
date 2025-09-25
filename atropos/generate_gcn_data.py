@@ -4,11 +4,13 @@ from AutoFL import name_utils
 from tqdm import tqdm
 import torch
 import argparse
+import random
 from collections import defaultdict
 import numpy as np
 import networkx as nx
 from torch_geometric.utils import from_networkx
 import matplotlib.pyplot as plt
+from natsort import natsorted
 
 D4J_BUG_INFO_DIR = '../autofl/data/defects4j'
 d4j_bugs = os.listdir('../autofl/data/defects4j')
@@ -256,6 +258,7 @@ def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k, arg_vector_siz
     #     if len(list(arg_set)) > arg_vector_size:
     #         arg_vector_size = len(list(arg_set))
     # arg_vector_size += 1 # for None
+    # print(reasoning_paths_dict.keys())
 
     for bug_name in reasoning_paths_dict.keys():
         # print(bug_name)
@@ -415,26 +418,51 @@ def main(model, repetition, num_files):
     # ks = [3]
     # ks = range(2, 13)
     # ks = [12]
-    all_gcn_S = dict()
-    all_gcn_F = dict()
-    all_gcn_FA = dict()
+    train_all_gcn_S = dict()
+    train_all_gcn_F = dict()
+    train_all_gcn_FA = dict()
+    test_all_gcn_S = dict()
+    test_all_gcn_F = dict()
+    test_all_gcn_FA = dict()
     arg_vector_size_dict = dict()
-    reasoning_paths_dict = dict()
+    train_reasoning_paths_dict = dict()
+    test_reasoning_paths_dict = dict()
     labels_dict = dict()
     args_dict = dict()
 
+
     for k in ks:
-        all_gcn_S[k] = []
-        all_gcn_F[k] = []
-        all_gcn_FA[k] = []
+        train_all_gcn_S[k] = []
+        train_all_gcn_F[k] = []
+        train_all_gcn_FA[k] = []
+        test_all_gcn_S[k] = []
+        test_all_gcn_F[k] = []
+        test_all_gcn_FA[k] = []
+        
         arg_vector_size_dict[k] = []
+        if not os.path.exists(f"./data/{model}/R{repetition}_{num_files}files/{k}"):
+            os.makedirs(f"./data/{model}/R{repetition}_{num_files}files/{k}")
+    
+    with open('./bug_list', 'r') as rf:
+        bug_list = rf.read().splitlines()
+        num_train_bug = max(1, int(len(bug_list)*0.8))
+        train_bug_list = random.sample(bug_list, num_train_bug)
+        test_bug_list = list(set(bug_list)-set(train_bug_list))
+    
+    with open(f'./data/{model}/R{repetition}_{num_files}files/train_bug_list', 'w') as wf:
+        wf.write('\n'.join(train_bug_list))
+    with open(f'./data/{model}/R{repetition}_{num_files}files/test_bug_list', 'w') as wf:
+        wf.write('\n'.join(test_bug_list))
 
     for i in range(1, num_files+1):
-        reasoning_paths_dict[i] = dict()
+        train_reasoning_paths_dict[i] = dict()
+        test_reasoning_paths_dict[i] = dict()
         labels_dict[i] = dict()
         args_dict[i] = dict()
+
         for k in ks:
-            reasoning_paths_dict[i][k] = dict()
+            train_reasoning_paths_dict[i][k] = dict()
+            test_reasoning_paths_dict[i][k] = dict()
             # labels_dict[i][k] = dict()
             args_dict[i][k] = dict()
 
@@ -446,9 +474,10 @@ def main(model, repetition, num_files):
         with open(combined_result_file, 'r') as f:
             combined_results = json.load(f)
         buggy_method_ranks = combined_results["ranks"]
-        bug_list = list(buggy_method_ranks.keys())
-        # bug_list = ['Chart_8']
+
+        # bug_list = ['Lang_57']
         # bug_list = bug_list[:30]
+
         for bug_name in tqdm(bug_list):
             if buggy_method_ranks[bug_name] == 1:
                 labels_dict[i][bug_name] = 1
@@ -459,9 +488,13 @@ def main(model, repetition, num_files):
 
             for k in ks:
                 reasoning_paths, arg_set = d4j_get_reasoning_paths_and_args(result_dirs, bug_name, k)
-                reasoning_paths_dict[i][k][bug_name] = reasoning_paths
+                if bug_name in train_bug_list:
+                    train_reasoning_paths_dict[i][k][bug_name] = reasoning_paths
+                elif bug_name in test_bug_list:
+                    test_reasoning_paths_dict[i][k][bug_name] = reasoning_paths
                 args_dict[i][k][bug_name] = arg_set
                 arg_vector_size_dict[k].append(len(list(arg_set)))
+
                 # print(f'=============={k}===============')
                 # for rp in reasoning_paths_dict[k][bug_name]:
                 #     for rs in rp['function_calls']:
@@ -474,16 +507,23 @@ def main(model, repetition, num_files):
                 # print(args_dict[k][bug_name])
                 # print(arg_vector_size_dict[k])
                 # print('===============================')
-        
+    max_arg_vec_size_dict = dict()
+    with open(f'./data/{model}/R{repetition}_{num_files}files/arg_vector_size.txt', 'w') as f:
+        for k in ks:
+            arg_vector_size = max(arg_vector_size_dict[k]) + 1
+            f.write(f'{k} {arg_vector_size}\n')
+            max_arg_vec_size_dict[k] = arg_vector_size
+            
+            print(f"{k} {arg_vector_size+1}")
+    
     for k in ks:
-        # print()
-        arg_vector_size = max(arg_vector_size_dict[k]) + 1
         for i in range(1, num_files+1):
-            gcn_S, gcn_F, gcn_FA = generate_LIG(reasoning_paths_dict[i][k], labels_dict[i], args_dict[i][k], k, arg_vector_size, model = model, r= repetition, n = num_files)
-            all_gcn_S[k].extend(gcn_S)
-            all_gcn_F[k].extend(gcn_F)
-            all_gcn_FA[k].extend(gcn_FA)
-        # print(len(all_gcn_FA[k]))
+            train_gcn_S, train_gcn_F, train_gcn_FA = generate_LIG(train_reasoning_paths_dict[i][k], labels_dict[i], args_dict[i][k], k, max_arg_vec_size_dict[k], model = model, r= repetition, n = num_files)
+            train_all_gcn_S[k].extend(train_gcn_S)
+            train_all_gcn_F[k].extend(train_gcn_F)
+            train_all_gcn_FA[k].extend(train_gcn_FA)
+        print(len(train_all_gcn_FA[k]))
+        print(len(train_bug_list))
 
         
     for k in ks:
@@ -491,11 +531,32 @@ def main(model, repetition, num_files):
             os.makedirs(f"./data/{model}/R{repetition}_{num_files}files/{k}")
 
         torch.save({
-            "dataset_S": all_gcn_S[k],
-            "dataset_F": all_gcn_F[k],
-            "dataset_FA": all_gcn_FA[k],
-        }, f"data/{model}/R{repetition}_{num_files}files/{k}/gcn_dataset.pth")
-        print(f"{k}th GCN datasets saved to gcn_dataset.pth")
+            "dataset_S": train_all_gcn_S[k],
+            "dataset_F": train_all_gcn_F[k],
+            "dataset_FA": train_all_gcn_FA[k],
+        }, f"data/{model}/R{repetition}_{num_files}files/{k}/train_gcn_dataset.pth")
+        print(f"{k}th GCN datasets saved to train_gcn_dataset.pth")
+    
+    for k in ks:
+        for i in range(1, num_files+1):
+            test_gcn_S, test_gcn_F, test_gcn_FA = generate_LIG(test_reasoning_paths_dict[i][k], labels_dict[i], args_dict[i][k], k, max_arg_vec_size_dict[k], model = model, r= repetition, n = num_files)
+            test_all_gcn_S[k].extend(test_gcn_S)
+            test_all_gcn_F[k].extend(test_gcn_F)
+            test_all_gcn_FA[k].extend(test_gcn_FA)
+        print(len(test_all_gcn_FA[k]))
+        print(len(test_bug_list))
+
+        
+    for k in ks:
+        if not os.path.exists(f"./data/{model}/R{repetition}_{num_files}files/{k}"):
+            os.makedirs(f"./data/{model}/R{repetition}_{num_files}files/{k}")
+
+        torch.save({
+            "dataset_S": test_all_gcn_S[k],
+            "dataset_F": test_all_gcn_F[k],
+            "dataset_FA": test_all_gcn_FA[k],
+        }, f"data/{model}/R{repetition}_{num_files}files/{k}/test_gcn_dataset.pth")
+        print(f"{k}th GCN datasets saved to test_gcn_dataset.pth")
 
 
                 

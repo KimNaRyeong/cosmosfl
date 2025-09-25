@@ -142,14 +142,10 @@ def merge_individual_scores(result_dirs):
 
     return merged_df, model_list
 
-# score_df, model_list = preprocess_results([dir], args.project, args.aux, args.language)
-# args.project = None
-# args.aux = True
-# args.language = java
 def preprocess_results(result_dirs, project, aux, lang):
     if os.path.isdir('cached_results') and all([os.path.isfile(f'cached_results/{dir.replace("/", "_")}.csv') for dir in result_dirs]):
         return merge_individual_scores(result_dirs)
-    else: # 캐시된 결과 없으면 새로 처리
+    else:
         model_list, json_files, autofl_scores = compute_model_scores(result_dirs, project)
 
         if aux:
@@ -164,18 +160,20 @@ def apply_weight_and_evaluate(autofl_scores, model_list, weights, verbose=False)
     weights = [w * normalizing_factor for w in weights]
     if verbose:
         print(f'Applying weights: {weights}')
-    autofl_scores_aug = autofl_scores.copy(deep=True)
-    autofl_scores_aug['weighted_sum'] = autofl_scores_aug[model_list].dot(weights)
+    # autofl_scores_aug = autofl_scores.copy(deep=True)
+    autofl_scores['weighted_sum'] = autofl_scores[model_list].dot(weights)
+    print(autofl_scores)
 
-    autofl_scores_aug.sort_values(
+    autofl_scores.sort_values(
         by=['weighted_sum', 'aux1', 'aux2', 'i', 'method'],
         ascending=[False, False, False, True, True],
         inplace=True
     )
-    print(autofl_scores_aug)
-    autofl_scores_aug['rank'] = autofl_scores_aug.groupby('bug').cumcount() + 1
-    print(autofl_scores_aug)
-    return autofl_scores_aug[autofl_scores_aug['desired_score'] == 1].groupby('bug')['rank'].min()
+    print(autofl_scores)
+
+    autofl_scores['rank'] = autofl_scores.groupby('bug').cumcount() + 1
+
+    return autofl_scores[autofl_scores['desired_score'] == 1].groupby('bug')['rank'].min()
 
 def get_accuracies(rank_by_bug):
    return [len(rank_by_bug[rank_by_bug <= 1]), len(rank_by_bug[rank_by_bug <= 2]), len(rank_by_bug[rank_by_bug <= 3]), len(rank_by_bug[rank_by_bug <= 4]), len(rank_by_bug[rank_by_bug <= 5])]
@@ -293,20 +291,27 @@ def get_correpsonding_optimizer(strategy, size):
     else:
         return get_de_optimizer(size)
 
+# sample_size = N, run_count = R
 def get_samples(result_dirs, run_count, sample_size, max_index, sampled_indices):
     samples = []
-    print("kk")
-    print(result_dirs)
-    print(sample_size)
-    print(len(sampled_indices))
+    candidates = [int(dir.split('/')[1].split('_')[-1]) for dir in result_dirs]
     while len(sampled_indices) < sample_size:
-        sample_index = sorted(random.sample(range(1, max_index + 1), run_count))
+        sample_index = random.sample(candidates, run_count)
         if sample_index in sampled_indices:
             continue
         sampled_indices.append(sample_index)
         samples.append([dir for dir in result_dirs if any([index == int(dir.split('/')[1].split('_')[-1])for index in sample_index])])
-        
+       
     return samples
+    # samples = []
+    # while len(sampled_indices) < sample_size:
+    #     sample_index = sorted(random.sample(range(1, max_index + 1), run_count))
+    #     if sample_index in sampled_indices:
+    #         continue
+    #     sampled_indices.append(sample_index)
+    #     samples.append([dir for dir in result_dirs if any([index == int(dir.split('/')[1].split('_')[-1])for index in sample_index])])
+        
+    # return samples
 
 def get_existing_samples(output_dir, prefix):
     existing_files = [file for file in os.listdir(output_dir) if file.startswith(prefix)]
@@ -340,7 +345,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     assert args.language in ["java", "python"]
 
-    # 리눅스 bash 쉘에서 실행하면 자동으로 /* glob 적용되어 results/d4j_auto_eol_1/*로 넣어도 그 아래까지 다 읽힘
     if args.preprocessing:
         models = ['llama3', 'llama3.1', 'mistral-nemo', 'qwen2.5-coder']
         filtered_dirs = [dir for dir in args.result_dirs if any([model in dir for model in models])]
@@ -349,35 +353,70 @@ if __name__ == '__main__':
             with open(f'cached_results/{dir.replace("/","_")}.csv', 'w') as f:
                 score_df.to_csv(f)
     elif args.sampling:
-        filtered_dirs = [dir for dir in args.result_dirs if any([dir.endswith(model) for model in args.models])]
-        max_index = max([int(dir.split('/')[1].split('_')[-1]) for dir in filtered_dirs])
-        sampled_indices, run_indices = get_existing_samples(args.output, f'{args.strategy}_CV_R{args.run_count}_' if args.cross_validation else f'{args.strategy}_R{args.run_count}_')
-        remaining_indices = list(set(range(1, args.sample_size + 1)) - set(run_indices))
-        samples = get_samples(filtered_dirs, args.run_count, args.sample_size, max_index, sampled_indices)
-        
-        for i, sample in enumerate(samples):
-            score_df, model_list = preprocess_results(sample, args.project, args.aux, args.language)    
-            optimizer = get_correpsonding_optimizer(args.strategy, len(model_list))
+        # filtered_dirs = [dir for dir in args.result_dirs if any([dir.endswith(model) for model in args.models])]
+        # max_index = max([int(dir.split('/')[1].split('_')[-1]) for dir in filtered_dirs])
+        # # print(filtered_dirs)
+        # sampled_indices, run_indices = get_existing_samples(args.output, f'{args.strategy}_CV_R{args.run_count}_' if args.cross_validation else f'{args.strategy}_R{args.run_count}_')
 
-            if args.cross_validation:
-                log = cross_validation(score_df, model_list, optimizer)
-                log['sampled_dirs'] = sample
-            else:
-                evaluator = create_evaluation_function(score_df, model_list)
-                best, optimization_log, best_over_time = optimizer(evaluator)
-                ranks = apply_weight_and_evaluate(score_df, model_list, best, verbose=True)
-                accs = get_accuracies(ranks)
-                log = dict()
-                log['best'] = best
-                log['best_weights_over_time'] = best_over_time
-                log['accs'] = accs
-                log['ranks'] = dict(zip(ranks.index, ranks.tolist()))
-                log['log'] = optimization_log
-                log['sampled_dirs'] = sample
+        # sampled_indices = []
+        # run_indices = []
+        # remaining_indices = list(set(range(1, args.sample_size + 1)) - set(run_indices))
+        # print("k")
+        # print(args.sampling)
+        # samples = get_samples(filtered_dirs, args.run_count, args.sample_size, max_index, sampled_indices)
+        # # print(samples)
+        # r, n = args.run_count, args.sample_size
+        # samples = []
+        # for i in range(n):
+        #     print(f"======================{i}======================")
+        #     if len(args.models) > 1:
+        #         dir_name = 'accat1_de'
+        #     else:
+        #         dir_name = args.models[0]
+        #     exist_result_file = f'./weighted_fl_results/{dir_name}/equal_R{r}_{i+1}.json'
+        #     print(exist_result_file)
+        #     with open(exist_result_file, 'r') as f:
+        #         sampled_dirs = json.load(f)['sampled_dirs']
+        #     print(sampled_dirs)
+        #     samples.append(sampled_dirs)
+        # print(samples)
+
+
+        
+        
+        # for i, sample in enumerate(samples):
+        #     print(f"========================{i} {sample}========================")
+        #     score_df, model_list = preprocess_results(sample, args.project, args.aux, args.language)    
+        #     optimizer = get_correpsonding_optimizer(args.strategy, len(model_list))
+        #     print(score_df)
+        #     print(model_list)
+        #     print(optimizer)
+
+        #     if args.cross_validation:
+        #         log = cross_validation(score_df, model_list, optimizer)
+        #         log['sampled_dirs'] = sample
+        #     else:
+        #         evaluator = create_evaluation_function(score_df, model_list)
+        #         best, optimization_log, best_over_time = optimizer(evaluator)
+        #         ranks = apply_weight_and_evaluate(score_df, model_list, best, verbose=True)
+
+
+        #         accs = get_accuracies(ranks)
+
+        #         autofl_confidence = score_df[score_df['rank'] == 1].set_index('bug')['weighted_sum'].to_dict()
+        #         # print(autofl_confidence)
+        #         log = dict()
+        #         log['best'] = best
+        #         log['best_weights_over_time'] = best_over_time
+        #         log['accs'] = accs
+        #         log['ranks'] = dict(zip(ranks.index, ranks.tolist()))
+        #         log['log'] = optimization_log
+        #         log['sampled_dirs'] = sample
+        #         log['autofl_confidence'] = autofl_confidence
             
-            output_path = f'{args.output}/{args.strategy}_CV_R{args.run_count}_{remaining_indices[i]}.json' if args.cross_validation else f'{args.output}/{args.strategy}_R{args.run_count}_{remaining_indices[i]}.json'
-            with open(output_path, 'w') as f:
-                json.dump(log, f, indent=4)
+        #     output_path = f'{args.output}/{args.strategy}_CV_R{args.run_count}_{remaining_indices[i]}.json' if args.cross_validation else f'{args.output}/{args.strategy}_R{args.run_count}_{remaining_indices[i]}.json'
+        #     with open(output_path, 'w') as f:
+        #         json.dump(log, f, indent=4)
     else:
         filtered_dirs = [dir for dir in args.result_dirs if any([dir.endswith(model) for model in args.models])]
         score_df, model_list = preprocess_results(filtered_dirs, args.project, args.aux, args.language)    

@@ -24,13 +24,16 @@ def set_seed(seed):
     torch.use_deterministic_algorithms(True)
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
     
-def data_load(model, repetition, num_files, ks):
+def data_load(model, repetition, num_files, ks, split):
     dataset_S = dict()
     dataset_F = dict()
     dataset_FA = dict()
 
     for k in ks:
-        loaded_data = torch.load(f"/home/kimnal0/cosmosfl/atropos/data/{model}/R{repetition}_{num_files}files/{k}/gcn_dataset.pth", weights_only=False)
+        if split:
+            loaded_data = torch.load(f"/home/kimnal0/cosmosfl/atropos/data/{model}/R{repetition}_{num_files}files/{k}/train_gcn_dataset.pth", weights_only=False)
+        else:
+            loaded_data = torch.load(f"/home/kimnal0/cosmosfl/atropos/data/{model}/R{repetition}_{num_files}files/{k}/gcn_dataset.pth", weights_only=False)
 
         dataset_S[k] = loaded_data["dataset_S"]
         dataset_F[k] = loaded_data["dataset_F"]
@@ -238,7 +241,7 @@ def evaluate_with_specificity(model, loader, device):
     
     return specificity
 
-def train_and_test_model(dataset, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, llm_model, repetition, num_files, dataset_name):
+def train_and_test_model(dataset, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, llm_model, repetition, num_files, dataset_name, split):
     print(f"Training and testing with {dataset_name}")
     with open(result_file, "a+") as rf:
         rf.write(f"{dataset_name.split('_')[-1]}\n")
@@ -246,6 +249,8 @@ def train_and_test_model(dataset, criterion, output_dim, K, kf, lr, batch_size, 
     for k in sorted(ks):
         with open(result_file, "a+") as rf:
             rf.write(f'k={k}\n')
+        
+        ckpt_base = f'../trained_model/{llm_model}/R{repetition}_{num_files}files/{k}'
         print(f"==================For {k}=======================")
         
         input_dim = dataset[k][0].x.shape[1]
@@ -257,6 +262,9 @@ def train_and_test_model(dataset, criterion, output_dim, K, kf, lr, batch_size, 
         epoch_fprs = [[] for _ in range(num_epochs)]
         epoch_tprs = [[] for _ in range(num_epochs)]
         mean_fpr = np.linspace(0, 1, 100)
+        best_acc = -1.0
+        best_acc_fold = -1
+        best_acc_epoch = -1
 
         for fold, (train_idx, test_idx) in tqdm(enumerate(splits)):
             train_dataset = [dataset[k][i] for i in train_idx]
@@ -266,6 +274,7 @@ def train_and_test_model(dataset, criterion, output_dim, K, kf, lr, batch_size, 
 
             model = GCN(input_dim, hidden_dim, output_dim, dropout_p, num_layer).to(device)
             optimizer = torch.optim.Adam(model.parameters(), lr = lr)
+
 
             for epoch in range(num_epochs):
                 loss = train(model, optimizer, criterion, train_loader,device)
@@ -288,6 +297,37 @@ def train_and_test_model(dataset, criterion, output_dim, K, kf, lr, batch_size, 
                 epoch_tprs[epoch].append(np.interp(mean_fpr, fpr, tpr))
                 epoch_tprs[epoch][-1][0]= 0.0
 
+                if test_acc > best_acc:
+                    best_acc = test_acc
+                    best_acc_fold = fold
+                    best_acc_epoch = epoch
+                    if split:
+                        acc_ckpt = os.path.join(ckpt_base, f'train_best_acc.pt')
+                    else:    
+                        acc_ckpt = os.path.join(ckpt_base, f'best_acc.pt')
+                    save_checkpoint(
+                        model,
+                        acc_ckpt,
+                        meta={
+                            "metric": "test_acc",
+                            "value": float(best_acc),
+                            "fold": int(best_acc_fold),
+                            "epoch": int(best_acc_epoch),
+                            "k": int(k),
+                            "fold": int(fold),
+                            "hparams": {
+                                "input_dim": int(input_dim),
+                                "hidden_dim": int(hidden_dim),
+                                "output_dim": int(output_dim),
+                                "dropout_p": float(dropout_p),
+                                "num_layer": int(num_layer),
+                                "lr": float(lr),
+                                "batch_size": int(batch_size)
+                            }
+                        }
+                    )
+                    print(f"New checkpoint is saved! - Accuracy: {best_acc}")
+
         mean_train_accs = [acc / K for acc in train_accs]
         mean_test_accs = [acc / K for acc in test_accs]
         mean_precisions = [pre / K for pre in precisions]
@@ -308,7 +348,10 @@ def train_and_test_model(dataset, criterion, output_dim, K, kf, lr, batch_size, 
         if not os.path.exists(graph_dir):
             os.makedirs(graph_dir)
 
-        acc_graph_path = os.path.join(graph_dir, f"{k}k_acc.png")
+        if split:
+            acc_graph_path = os.path.join(graph_dir, f"train_{k}k_acc.png")
+        else:
+            acc_graph_path = os.path.join(graph_dir, f"{k}k_acc.png")
         plt.figure(figsize=(10, 6))
         plt.plot(range(1, num_epochs + 1), mean_train_accs, label='Train Accuracy')
         plt.plot(range(1, num_epochs + 1), mean_test_accs, label='Test Accuracy')
@@ -349,25 +392,32 @@ def train_and_test_model(dataset, criterion, output_dim, K, kf, lr, batch_size, 
             rf.write(f"Best mean_npv: {mean_npvs[best_epoch]:.4f}\n")
             rf.write(f"Best mean_specificity: {mean_specificities[best_epoch]:.4f}\n")
     
-    
+def save_checkpoint(model, path, meta=None):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    payload = {"state_dict": model.state_dict()}
+    if meta:
+        payload.update(meta)
+    torch.save(payload, path)
 
 
 
-
-def main(model, repetition, num_files):
+def main(model, repetition, num_files, split):
     set_seed(42)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    ks = [int(k) for k in os.listdir(f"/home/kimnal0/cosmosfl/atropos/data/{model}/R{repetition}_{num_files}files")]
+    ks = list(range(1, 13))
 
-    dataset_S, dataset_F, dataset_FA = data_load(model, repetition, num_files, ks)
+    dataset_S, dataset_F, dataset_FA = data_load(model, repetition, num_files, ks, split)
 
     result_dir = f"/home/kimnal0/cosmosfl/atropos/results/one_hot/{model}"
     if not os.path.exists(result_dir):
         os.makedirs(result_dir)
 
-    result_file = os.path.join(result_dir, f"results_gcn_R{repetition}_{num_files}files.txt")
+    if split:
+        result_file = os.path.join(result_dir, f"train_results_gcn_R{repetition}_{num_files}files.txt")
+    else:
+        result_file = os.path.join(result_dir, f"results_gcn_R{repetition}_{num_files}files.txt")
 
     if os.path.exists(result_file):
         os.remove(result_file)
@@ -387,11 +437,11 @@ def main(model, repetition, num_files):
     hidden_dim = 32
     dropout_p = 0.8
     num_layer = 2
-    num_epochs = 100
+    num_epochs = 150
 
-    train_and_test_model(dataset_S, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, model, repetition, num_files, "dataset_S")
-    train_and_test_model(dataset_F, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, model, repetition, num_files, "dataset_F")
-    train_and_test_model(dataset_FA, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, model, repetition, num_files, "dataset_FA")
+    # train_and_test_model(dataset_S, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, model, repetition, num_files, "dataset_S", split)
+    # train_and_test_model(dataset_F, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, model, repetition, num_files, "dataset_F", split)
+    train_and_test_model(dataset_FA, criterion, output_dim, K, kf, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, model, repetition, num_files, "dataset_FA", split)
 
 
 
@@ -401,9 +451,11 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--model', default='llama3')
     parser.add_argument('-r', '--repetition', default=1, type=int)
     parser.add_argument('-n', '--num_files', default=1, type=int)
+    parser.add_argument('-s', '--split', default=1, type=int)
     args = parser.parse_args()
     assert args.model in ['llama3', 'llama3.1', 'mistral-nemo', 'qwen2.5-coder', 'equal_weight']
     assert args.repetition in range(1, 25)
     assert args.num_files in range(1, 21)
 
-    main(args.model, args.repetition, args.num_files)
+    split = True if args.split == 1 else False
+    main(args.model, args.repetition, args.num_files, split)

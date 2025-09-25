@@ -8,12 +8,15 @@ def get_accuracy(model, run_count, sample_size):
     for i in range(1, sample_size+1):
         if model == 'equal_weight':
             model = 'accat1_de'
-        fl_results_file = f'../autofl/weighted_fl_results/test/{model}/equal_R{run_count}_{sample_size}.json'
+        fl_results_file = f'../autofl/weighted_fl_results/test/{model}/equal_R{run_count}_{i}.json'
         # fl_results_file = f'../autofl/weighted_fl_results/test/equal_R{run_count}_{sample_size}.json'
         with open(fl_results_file, 'r') as f:
             results = json.load(f)
-        bug_list = results['ranks'].keys()
-        for bug in bug_list:
+        # bug_list = results['ranks'].keys()
+        with open(f'./data/{model}/R{run_count}_{sample_size}files/test_bug_list', 'r') as f:
+            test_bug_list = f.read().splitlines()
+        # for bug in bug_list:
+        for bug in test_bug_list:
             all_labels.append(1 if results['ranks'][bug] == 1 else 0)
             all_preds.append(1 if results['autofl_confidence'][bug] >= 0.5 else 0)
             all_autofl_confidences.append(results['autofl_confidence'][bug])
@@ -25,7 +28,7 @@ def get_accuracy(model, run_count, sample_size):
 
 def main(model, run_count, sample_size):
     accuracy, roc_auc = get_accuracy(model, run_count, sample_size)
-    result_file = f'./results/one_hot/{model}/results_gcn_R{run_count}_{sample_size}files.txt'
+    result_file = f'./results/one_hot/{model}/results_gcn_R{run_count}_{sample_size}files_wo_cv.txt'
 
     acc_new_line = f'AutoFL-Confidence accuracy: {accuracy:.4f}\n'
     auc_new_line = f'AutoFL-Confidence roc-auc: {roc_auc:.4f}\n'
