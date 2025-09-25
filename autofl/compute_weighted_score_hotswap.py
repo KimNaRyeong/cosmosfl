@@ -17,7 +17,7 @@ from utils.optimization_strategies import *
 
 NUM_DATAFRAME_HEADER_COLS = 7
 
-def compute_model_scores(result_dirs, project=None):
+def compute_model_scores(result_dirs, prediction_result_dict, project=None):
     json_status = {}
     score_results = {}
     model_list = []
@@ -26,6 +26,8 @@ def compute_model_scores(result_dirs, project=None):
         file_iterator = tqdm(file_iterator)
         for fname in file_iterator:
             bug_name = file2bug(fname)
+            # if bug_name != "Lang_3":
+            #     continue
             if bug_name is None:
                 continue            
             if project and not bug_name.startswith(project):
@@ -35,13 +37,20 @@ def compute_model_scores(result_dirs, project=None):
             score_results[bug_name] = score_results.get(bug_name, {})   # method -> model -> score info
             status_result, score_result = json_status[bug_name], score_results[bug_name]
 
-            ### use hotswap results if they exist
-            hotswap_result_path = f"../../routing/autofl/{result_dir}/hotswap/5/{fname}"
+            ### use hotswap results
+            if bug_name in prediction_result_dict.keys():
+                prediction = prediction_result_dict[bug_name]["prediction"]["5"]
+            
+            # print(prediction)
 
-            if os.path.exists(hotswap_result_path):
+            hotswap_result_path = f"../../hotswap/autofl/{result_dir}/hotswap/4/{fname}"
+
+            if prediction == 0 and os.path.exists(hotswap_result_path):
                 fpath = hotswap_result_path
             else:
                 fpath = os.path.join(result_dir, fname)
+            # print(fpath)
+
             model = result_dir.split('/')[-1]
             if model not in model_list:
                 model_list.append(model)
@@ -149,11 +158,11 @@ def merge_individual_scores(result_dirs):
 
     return merged_df, model_list
 
-def preprocess_results(result_dirs, project, aux, lang):
+def preprocess_results(result_dirs, project, aux, lang, prediction_result):
     if os.path.isdir('cached_results') and all([os.path.isfile(f'cached_results/{dir.replace("/", "_")}.csv') for dir in result_dirs]):
         return merge_individual_scores(result_dirs)
     else:
-        model_list, json_files, autofl_scores = compute_model_scores(result_dirs, project)
+        model_list, json_files, autofl_scores = compute_model_scores(result_dirs, prediction_result, project)
 
         if aux:
             method_scores = add_auxiliary_scores(json_files, autofl_scores, lang, verbose=True)
@@ -169,14 +178,14 @@ def apply_weight_and_evaluate(autofl_scores, model_list, weights, verbose=False)
         print(f'Applying weights: {weights}')
     # autofl_scores_aug = autofl_scores.copy(deep=True)
     autofl_scores['weighted_sum'] = autofl_scores[model_list].dot(weights)
-    print(autofl_scores)
+    # print(autofl_scores)
 
     autofl_scores.sort_values(
         by=['weighted_sum', 'aux1', 'aux2', 'i', 'method'],
         ascending=[False, False, False, True, True],
         inplace=True
     )
-    print(autofl_scores)
+    # print(autofl_scores)
 
     autofl_scores['rank'] = autofl_scores.groupby('bug').cumcount() + 1
 
@@ -382,13 +391,16 @@ if __name__ == '__main__':
             with open(exist_result_file, 'r') as f:
                 sampled_dirs = json.load(f)['sampled_dirs']
             samples.append(sampled_dirs)
-        print(samples)
 
-
-        
+        prediction_result_file = "../atropos/results/one_hot/llama3/R10_10files/predictions_FA.json"
+        with open(prediction_result_file, 'r') as f:
+            prediction_result = json.load(f)
         
         for i, sample in enumerate(samples):
-            score_df, model_list = preprocess_results(sample, args.project, args.aux, args.language)    
+            # if i != 6: # works only for file_idx = 7
+            #     continue
+            # print(sample)
+            score_df, model_list = preprocess_results(sample, args.project, args.aux, args.language, prediction_result[str(i+1)])
             optimizer = get_correpsonding_optimizer(args.strategy, len(model_list))
 
             if args.cross_validation:

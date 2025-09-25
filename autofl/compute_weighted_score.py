@@ -375,7 +375,7 @@ if __name__ == '__main__':
             with open(exist_result_file, 'r') as f:
                 sampled_dirs = json.load(f)['sampled_dirs']
             samples.append(sampled_dirs)
-        print(samples)
+
 
 
         
