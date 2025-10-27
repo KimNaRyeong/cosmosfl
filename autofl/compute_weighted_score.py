@@ -162,14 +162,12 @@ def apply_weight_and_evaluate(autofl_scores, model_list, weights, verbose=False)
         print(f'Applying weights: {weights}')
     # autofl_scores_aug = autofl_scores.copy(deep=True)
     autofl_scores['weighted_sum'] = autofl_scores[model_list].dot(weights)
-    print(autofl_scores)
 
     autofl_scores.sort_values(
         by=['weighted_sum', 'aux1', 'aux2', 'i', 'method'],
         ascending=[False, False, False, True, True],
         inplace=True
     )
-    print(autofl_scores)
 
     autofl_scores['rank'] = autofl_scores.groupby('bug').cumcount() + 1
 
@@ -376,10 +374,6 @@ if __name__ == '__main__':
                 sampled_dirs = json.load(f)['sampled_dirs']
             samples.append(sampled_dirs)
 
-
-
-        
-        
         for i, sample in enumerate(samples):
             score_df, model_list = preprocess_results(sample, args.project, args.aux, args.language)    
             optimizer = get_correpsonding_optimizer(args.strategy, len(model_list))
@@ -396,7 +390,7 @@ if __name__ == '__main__':
                 accs = get_accuracies(ranks)
 
                 autofl_confidence = score_df[score_df['rank'] == 1].set_index('bug')['weighted_sum'].to_dict()
-                # print(autofl_confidence)
+
                 log = dict()
                 log['best'] = best
                 log['best_weights_over_time'] = best_over_time
@@ -422,6 +416,8 @@ if __name__ == '__main__':
             best, optimization_log, best_over_time = optimizer(evaluator)
             ranks = apply_weight_and_evaluate(score_df, model_list, best, verbose=True)
             accs = get_accuracies(ranks)
+            autofl_confidence = score_df[score_df['rank'] == 1].set_index('bug')['weighted_sum'].to_dict()
+
             log = dict()
             log['best'] = best
             log['best_weights_over_time'] = best_over_time
@@ -429,6 +425,8 @@ if __name__ == '__main__':
             log['models'] = model_list
             log['log'] = optimization_log
             log['ranks'] = dict(zip(ranks.index, ranks.tolist()))
+            log['sampled_dirs'] = filtered_dirs
+            log['autofl_confidence'] = autofl_confidence
         log['sampled_dirs'] = filtered_dirs
         output_path = f'{args.output}_{args.strategy}_CV.json' if args.cross_validation else f'{args.output}_{args.strategy}.json' 
         with open(output_path, 'w') as f:

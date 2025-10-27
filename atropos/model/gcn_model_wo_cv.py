@@ -348,7 +348,7 @@ def train_and_test_model(train_dataset, test_dataset, criterion, output_dim, lr,
             rf.write(f"Best accuracy: {best_acc:.4f}\n")
             rf.write(f"Best roc_auc: {auc:.4f}\n")
             rf.write(f"Best precision: {precision:.4f}\n")
-            rf.write(f"Best recall: {precision:.4f}\n")
+            rf.write(f"Best recall: {recall:.4f}\n")
             rf.write(f"Best npv: {npv:.4f}\n")
             rf.write(f"Best specificify: {specificity:.4f}\n")
         
