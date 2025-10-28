@@ -1,5 +1,6 @@
 import torch.nn as nn
 import os
+import json
 import torch
 import numpy as np
 import argparse
@@ -10,9 +11,9 @@ from torch_geometric.nn import GCNConv, global_mean_pool
 from torch_geometric.loader import DataLoader
 from sklearn.model_selection import KFold
 from tqdm import tqdm
-from sklearn.metrics import roc_auc_score, roc_curve, auc
+from sklearn.metrics import roc_auc_score, roc_curve, accuracy_score
 from sklearn.metrics import precision_score, recall_score, confusion_matrix
-from sklearn.model_selection import train_test_split
+from collections import defaultdict
 
 
 def set_seed(seed):
@@ -241,7 +242,7 @@ def evaluate_with_specificity(model, loader, device):
     
     return specificity
 
-def train_and_test_model(dataset, criterion, output_dim, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, dataset_name):
+def train_and_test_model(dataset, criterion, output_dim, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, dataset_name, train_idx, test_idx):
     print(f"Training and testing with {dataset_name}")
     with open(result_file, "a+") as rf:
         rf.write(f"{dataset_name.split('_')[-1]}\n")
@@ -255,7 +256,9 @@ def train_and_test_model(dataset, criterion, output_dim, lr, batch_size, hidden_
         
         input_dim = dataset[k][0].x.shape[1]
 
-        train_dataset, test_dataset = train_test_split(dataset[k], test_size=0.2, random_state=42)
+        train_dataset = [dataset[k][i] for i in train_idx]
+        test_dataset = [dataset[k][i] for i in test_idx]
+
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
@@ -354,7 +357,39 @@ def save_checkpoint(model, path, meta=None):
         payload.update(meta)
     torch.save(payload, path)
 
+def make_split_indices(n, test_size = 0.2, seed = 42):
+    rng = np.random.RandomState(seed)
+    idx = np.arange(n)
+    rng.shuffle(idx)
+    test_n = int(round(n*test_size))
+    test_idx = idx[:test_n].tolist()
+    train_idx = idx[test_n:].tolist()
 
+    return train_idx, test_idx
+
+def get_autofl_confidence_scores(dataset):
+    all_labels = []
+    all_preds = []
+    all_autofl_confidences = []
+
+    data_idx_dict = defaultdict(list)
+    for data in dataset:
+        data_idx_dict[data.idx].append(data)
+    
+    for idx, idx_dataset in data_idx_dict.items():
+        combined_result_file = f'/home/kimnal0/cosmosfl/autofl/weighted_fl_results/R10_N3/accat1_de_equal{idx}.json'
+
+        with open(combined_result_file, 'r') as f:
+            combined_result = json.load(f)
+        for data in idx_dataset:
+            all_labels.append(1 if combined_result['ranks'][data.bug_name] == 1 else 0)
+            all_preds.append(1 if combined_result['autofl_confidence'][data.bug_name] >= 0.5 else 0)
+            all_autofl_confidences.append(combined_result['autofl_confidence'][data.bug_name])
+        
+    accuracy = accuracy_score(all_labels, all_preds)
+    roc_auc = roc_auc_score(all_labels, all_autofl_confidences)
+
+    return accuracy, roc_auc
 
 def main(model):
     set_seed(42)
@@ -389,9 +424,21 @@ def main(model):
     num_layer = 2
     num_epochs = 150
 
-    train_and_test_model(dataset_S, criterion, output_dim, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, "dataset_S")
-    train_and_test_model(dataset_F, criterion, output_dim, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, "dataset_F")
-    train_and_test_model(dataset_FA, criterion, output_dim, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, "dataset_FA")
+    train_idx, test_idx = make_split_indices(len(dataset_S[1]))
+
+    dataset_for_conf_scores = [dataset_S[1][i] for i in test_idx]
+    confidence_acc, confidence_auc = get_autofl_confidence_scores(dataset_for_conf_scores)
+    with open(result_file, 'a+') as rf:
+        rf.write(f"AutoFL-Confidence accuracy: {confidence_acc:.4f}\n")
+        rf.write(f"AutoFL-Confidence roc-auc: {confidence_auc:.4f}\n")
+    
+    print(f"AutoFL-Confidence accuracy: {confidence_acc:.4f}")
+    print(f"AutoFL-Confidence roc-auc: {confidence_auc:.4f}")
+
+
+    train_and_test_model(dataset_S, criterion, output_dim, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, "dataset_S", train_idx, test_idx)
+    train_and_test_model(dataset_F, criterion, output_dim, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, "dataset_F", train_idx, test_idx)
+    train_and_test_model(dataset_FA, criterion, output_dim, lr, batch_size, hidden_dim, dropout_p, num_layer, num_epochs, ks, result_file, device, "dataset_FA", train_idx, test_idx)
 
 
 

@@ -242,7 +242,7 @@ def save_LIG_image(LIG, filename="LIG_graph.png"):
     plt.savefig(filename, format="png")
     plt.close()
 
-def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k, arg_vector_size):
+def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k, arg_vector_size, idx):
     def add_weighted_edge(G, u, v, weight = 1):
         if G.has_edge(u, v):
             G[u][v]['weight'] += weight
@@ -400,6 +400,15 @@ def generate_LIG(reasoning_paths_dict, labels_dict, args_dict, k, arg_vector_siz
         S_data.y = torch.tensor([labels_dict[bug_name]], dtype=torch.float)
         F_data.y = torch.tensor([labels_dict[bug_name]], dtype=torch.float)
         FA_data.y = torch.tensor([labels_dict[bug_name]], dtype=torch.float)
+
+        S_data.idx = idx
+        F_data.idx = idx
+        FA_data.idx = idx
+
+        S_data.bug_name = bug_name
+        F_data.bug_name = bug_name
+        FA_data.bug_name = bug_name
+        
         # print(arg_list)
         # for i, node in enumerate(LIG.nodes()):
         #     print(node)
@@ -499,7 +508,7 @@ def main(model):
     
     for k in ks:
         for i in range(1, 4):
-            gcn_S, gcn_F, gcn_FA = generate_LIG(reasoning_paths_dict[i][k], labels_dict[i], args_dict[i][k], k, max_arg_vec_size_dict[k])
+            gcn_S, gcn_F, gcn_FA = generate_LIG(reasoning_paths_dict[i][k], labels_dict[i], args_dict[i][k], k, max_arg_vec_size_dict[k], idx = i)
             all_gcn_S[k].extend(gcn_S)
             all_gcn_F[k].extend(gcn_F)
             all_gcn_FA[k].extend(gcn_FA)
